@@ -1,0 +1,20 @@
+# .gitignore
+
+# Environments
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs
+.idea/
+.vscode/
+
+# Temporary storage for downloaded videos
+/tmp/
