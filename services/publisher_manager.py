@@ -3,7 +3,7 @@ import os
 import logging
 from database.session import SessionLocal
 from database.models import ScheduledPost, SocialCredential
-from services.oracle_s3 import download_from_oracle
+from storage.oracle_s3 import download_video
 from publishers.youtube import upload_video
 
 logger = logging.getLogger("Publisher-Manager")
@@ -40,7 +40,7 @@ def process_single_post(post_id: int):
 
         # 4. Download from Oracle
         logger.info(f"Downloading {post.video_file_id} from Oracle...")
-        download_success = download_from_oracle(post.video_file_id, local_video_path)
+        download_success = download_video(post.video_file_id, local_video_path)
 
         if not download_success:
             logger.error(f"Download failed for Post {post_id}")
