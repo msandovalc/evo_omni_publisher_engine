@@ -1,27 +1,57 @@
 # storage/oracle_s3.py
-import boto3
-from botocore.exceptions import ClientError
+import oci
 import os
+import logging
+from dotenv import load_dotenv
 
-def get_s3_client():
-    """Initializes the boto3 client for Oracle Object Storage."""
-    return boto3.client(
-        's3',
-        region_name=os.getenv("ORACLE_REGION"),
-        endpoint_url=os.getenv("ORACLE_ENDPOINT"),
-        aws_access_key_id=os.getenv("ORACLE_ACCESS_KEY"),
-        aws_secret_access_key=os.getenv("ORACLE_SECRET_KEY")
-    )
+load_dotenv()
+logger = logging.getLogger("Storage")
+
+def get_oci_client():
+    """Initializes the OCI Object Storage client using RSA keys."""
+    config = {
+        "user": os.getenv("ORACLE_USER_OCID"),
+        "key_file": os.getenv("ORACLE_KEY_FILE"),
+        "fingerprint": os.getenv("ORACLE_FINGERPRINT"),
+        "tenancy": os.getenv("ORACLE_TENANCY_OCID"),
+        "region": os.getenv("ORACLE_REGION")
+    }
+    return oci.object_storage.ObjectStorageClient(config)
+
+def upload_video(local_file_path: str, object_name: str) -> bool:
+    """Uploads a video to Oracle Cloud."""
+    logger.info(f"⬆️ Uploading '{local_file_path}'...")
+    try:
+        client = get_oci_client()
+        namespace = os.getenv("ORACLE_NAMESPACE")
+        bucket = os.getenv("ORACLE_BUCKET_NAME")
+
+        with open(local_file_path, "rb") as f:
+            client.put_object(namespace, bucket, object_name, f, content_type="video/mp4")
+
+        logger.info(f"✅ Upload successful: {object_name}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Upload error: {e}")
+        return False
 
 def download_video(object_name: str, local_destination: str) -> bool:
-    """Downloads the video file from Oracle Cloud to the local VPS."""
-    print(f"[Storage] Downloading '{object_name}' from Oracle Cloud...")
+    """Downloads a video via OCI Native SDK."""
+    logger.info(f"⬇️ Downloading '{object_name}'...")
     try:
-        s3 = get_s3_client()
+        client = get_oci_client()
+        namespace = os.getenv("ORACLE_NAMESPACE")
         bucket = os.getenv("ORACLE_BUCKET_NAME")
-        s3.download_file(bucket, object_name, local_destination)
-        print(f"[Storage] Download complete: {local_destination}")
+
+        get_obj = client.get_object(namespace, bucket, object_name)
+
+        # 1MB buffer for performance
+        with open(local_destination, 'wb') as f:
+            for chunk in get_obj.data.raw.stream(1024 * 1024, decode_content=False):
+                f.write(chunk)
+
+        logger.info(f"✅ Download complete: {local_destination}")
         return True
-    except ClientError as e:
-        print(f"[Storage Error] Failed to download video: {e}")
+    except Exception as e:
+        logger.error(f"❌ Download error: {e}")
         return False

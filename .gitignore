@@ -18,3 +18,9 @@ __pycache__/
 
 # Temporary storage for downloaded videos
 /tmp/
+
+# Secrets and credentials
+credentials/
+*.json
+*.pem
+temp_videos/

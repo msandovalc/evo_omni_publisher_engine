@@ -1,4 +1,5 @@
 # api/routes_publish.py
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -8,9 +9,11 @@ from datetime import datetime
 from database.session import get_db
 from database.models import ScheduledPost, Client
 
+logger = logging.getLogger("Publish-API")
+
 # --- 1. PYDANTIC SCHEMAS (Data Validation) ---
 class PostCreate(BaseModel):
-    """Payload expected from the client (or n8n/Postman) to schedule a new video."""
+    """Payload expected from the client to schedule a new video."""
     client_id: int = Field(..., description="ID of the client scheduling the post")
     video_file_id: str = Field(..., description="Path or Object Storage ID of the video")
     title: str = Field(..., max_length=150, description="Title of the social media post")
@@ -29,7 +32,7 @@ class PostResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        from_attributes = True # Allows Pydantic to parse SQLAlchemy models
+        from_attributes = True
 
 # --- 2. FASTAPI ROUTER & ENDPOINTS ---
 router = APIRouter(
@@ -39,13 +42,13 @@ router = APIRouter(
 
 @router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 def schedule_new_post(post_data: PostCreate, db: Session = Depends(get_db)):
-    """
-    Endpoint to schedule a new video publication.
-    It receives the payload, verifies the client, and stores the task in PostgreSQL.
-    """
+    """Endpoint to schedule a new video publication."""
+    logger.info(f"Received request to schedule post: '{post_data.title}' for client {post_data.client_id}")
+
     # Verify if the client exists in the database
     client = db.query(Client).filter(Client.id == post_data.client_id).first()
     if not client:
+        logger.warning(f"Client ID {post_data.client_id} not found.")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Client with ID {post_data.client_id} not found in the database."
@@ -59,20 +62,19 @@ def schedule_new_post(post_data: PostCreate, db: Session = Depends(get_db)):
         description=post_data.description,
         platforms=post_data.platforms,
         scheduled_time=post_data.scheduled_time,
-        status="pending" # Status is pending until the background worker picks it up
+        status="pending"
     )
 
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
 
+    logger.info(f"Post {new_post.id} scheduled successfully for {new_post.scheduled_time}")
     return new_post
 
 @router.get("/pending", response_model=List[PostResponse])
 def get_pending_posts(db: Session = Depends(get_db)):
-    """
-    Retrieves all currently pending posts in the queue.
-    Useful for monitoring what the background worker is about to process.
-    """
+    """Retrieves all currently pending posts in the queue."""
+    logger.info("Fetching all pending posts from the database.")
     pending_posts = db.query(ScheduledPost).filter(ScheduledPost.status == "pending").all()
     return pending_posts
