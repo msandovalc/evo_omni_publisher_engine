@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from contextlib import asynccontextmanager
 
+from starlette.responses import FileResponse
+
 from database.session import engine, Base
 import database.models
 
@@ -87,12 +89,27 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-@app.get("/tiktok9hoT5JXtw0IwzXYbrrdrmkyLlPt9zYuy.txt")
-async def tiktok_verification():
+
+@app.get("/{filename}.txt")
+async def serve_tiktok_txt(filename: str):
     """
-    Serves the TikTok verification code for app review.
+    Dynamically serves TikTok verification files.
+    Matches any request for a .txt file where the name starts with 'tiktok'.
     """
-    return PlainTextResponse("tiktok-developers-site-verification=9hoT5JXtw0IwzXYbrrdrmkyLlPt9zYuy")
+    # Check if it's a TikTok verification request
+    if filename.startswith("tiktok"):
+        # Construct the full path to the file on the Ubuntu server
+        file_path = f"/var/www/html/{filename}.txt"
+
+        # Verify if the physical file exists before trying to read it
+        if os.path.exists(file_path):
+            # Return the actual content of the file
+            return FileResponse(file_path, media_type="text/plain")
+        else:
+            return PlainTextResponse("File not found on server", status_code=404)
+
+    # Reject any other .txt requests that don't start with 'tiktok'
+    return PlainTextResponse("Not found", status_code=404)
 
 @app.get("/terms", response_class=PlainTextResponse)
 async def terms_of_service():
