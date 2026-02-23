@@ -8,36 +8,71 @@ logger = logging.getLogger("TikTok-API")
 
 def upload_video_to_tiktok(video_path, title, token_data):
     """
-    Uploads a video to TikTok using the official Content Posting API.
-    Does NOT use Selenium or browser automation.
+    Uploads a video to TikTok using the official Content Posting API V2.
     """
-    logger.info(f"Starting TikTok upload process for: {title}")
+    logger.info(f"Starting REAL TikTok upload process for: {title}")
 
     access_token = token_data.get('access_token')
-    open_id = token_data.get('open_id')  # TikTok uses a unique OpenID per user
+
+    if not access_token:
+        logger.error("No access token found in token_data")
+        return False
 
     try:
-        # 1. Initialize the upload (Query TikTok for an upload URL)
-        # Note: This is a simplified representation of the TikTok API flow
-        url = "https://open.tiktokapis.com/v2/post/publish/video/init/"
+        file_size = os.path.getsize(video_path)
+
+        # 1. Initialize the upload
+        # Documentation: https://developers.tiktok.com/doc/content-posting-api-reference-post-video/
+        init_url = "https://open.tiktokapis.com/v2/post/publish/video/init/"
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json; charset=UTF-8"
         }
 
-        # --- SIMULATION MODE ---
-        logger.info(f"[SIMULATION] Initializing TikTok upload for file: {os.path.basename(video_path)}")
+        body = {
+            "post_info": {
+                "title": title,
+                "privacy_level": "PUBLIC_TO_EVERYONE",
+                "disable_duet": False,
+                "disable_comment": False,
+                "disable_stitch": False,
+                "video_ad_tag": False
+            },
+            "source_info": {
+                "source": "FILE_UPLOAD",
+                "video_size": file_size,
+                "chunk_size": file_size,
+                "total_chunk_count": 1
+            }
+        }
 
-        # In a real scenario, we would send video metadata here
-        # response = requests.post(url, headers=headers, json=body)
-        # upload_url = response.json()['data']['upload_url']
+        logger.info(f"Initializing TikTok upload for file: {os.path.basename(video_path)}")
+        response = requests.post(init_url, headers=headers, json=body)
+        res_json = response.json()
 
-        # 2. Upload the binary file to the provided URL
-        logger.info(f"[SIMULATION] Streaming binary data to TikTok...")
+        if response.status_code != 200 or "data" not in res_json:
+            logger.error(f"Failed to initialize TikTok upload: {res_json}")
+            return False
 
-        # 3. Finalize
-        logger.info(f"✅ SUCCESS! TikTok Video successfully 'published' (Simulated)")
-        return True
+        upload_url = res_json['data']['upload_url']
+        publish_id = res_json['data']['publish_id']
+
+        # 2. Upload the binary file (Streaming)
+        logger.info(f"Streaming {file_size} bytes to TikTok...")
+        with open(video_path, 'rb') as f:
+            upload_headers = {
+                "Content-Type": "video/mp4",
+                "Content-Length": str(file_size)
+            }
+            # TikTok expects the video bytes directly at the upload_url
+            put_response = requests.put(upload_url, data=f, headers=upload_headers)
+
+        if put_response.status_code == 200 or put_response.status_code == 201:
+            logger.info(f"✅ SUCCESS! TikTok Video successfully published. Publish ID: {publish_id}")
+            return True
+        else:
+            logger.error(f"Binary upload failed: {put_response.text}")
+            return False
 
     except Exception as e:
         logger.error(f"❌ TikTok upload failed: {str(e)}")
