@@ -87,7 +87,7 @@ def login(platform: str, client_id: int):
         params = {
             "client_key": TIKTOK_CLIENT_ID,
             "response_type": "code",
-            "scope": "user.info.basic,video.publish",
+            "scope": "user.info.basic",
             "redirect_uri": redirect_uri,
             "state": state_payload
         }
