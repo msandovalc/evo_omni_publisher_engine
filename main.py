@@ -89,6 +89,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.post("/")
+async def root_post_handler():
+    """Silences Oracle Cloud Health Check probes by returning 200 OK"""
+    return {"status": "alive"}
 
 @app.get("/{filename}.txt")
 async def serve_tiktok_txt(filename: str):
