@@ -93,23 +93,22 @@ app = FastAPI(
 @app.get("/{filename}.txt")
 async def serve_tiktok_txt(filename: str):
     """
-    Dynamically serves TikTok verification files.
+    Dynamically generates the exact verification signature TikTok expects.
     Matches any request for a .txt file where the name starts with 'tiktok'.
     """
-    # Check if it's a TikTok verification request
     if filename.startswith("tiktok"):
-        # Construct the full path to the file on the Ubuntu server
-        file_path = f"/var/www/html/{filename}.txt"
+        # Extract only the alphanumeric code by removing the "tiktok" prefix
+        # Example: "tiktok9hoT5JX..." becomes "9hoT5JX..."
+        verification_code = filename.replace("tiktok", "")
 
-        # Verify if the physical file exists before trying to read it
-        if os.path.exists(file_path):
-            # Return the actual content of the file
-            return FileResponse(file_path, media_type="text/plain")
-        else:
-            return PlainTextResponse("File not found on server", status_code=404)
+        # Build the EXACT signature string the TikTok bot is looking for
+        signature = f"tiktok-developers-site-verification={verification_code}"
+
+        # Return it as pure plain text (no hidden newline characters)
+        return PlainTextResponse(signature)
 
     # Reject any other .txt requests that don't start with 'tiktok'
-    return PlainTextResponse("Not found", status_code=404)
+    return PlainTextResponse("File not found", status_code=404)
 
 @app.get("/terms", response_class=PlainTextResponse)
 async def terms_of_service():
