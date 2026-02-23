@@ -87,12 +87,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-@app.get("/tiktokkr6gkTdVdPNh4y3ne0Uok3B5xqWZFqWx.txt")
+@app.get("/tiktok9hoT5JXtw0IwzXYbrrdrmkyLlPt9zYuy.txt")
 async def tiktok_verification():
     """
     Serves the TikTok verification code for app review.
     """
-    return PlainTextResponse("tiktok-developers-site-verification=kr6gkTdVdPNh4y3ne0Uok3B5xqWZFqWx")
+    return PlainTextResponse("tiktok-developers-site-verification=9hoT5JXtw0IwzXYbrrdrmkyLlPt9zYuy")
 
 @app.get("/terms", response_class=PlainTextResponse)
 async def terms_of_service():
