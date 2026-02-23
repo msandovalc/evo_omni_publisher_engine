@@ -122,11 +122,24 @@ async def terms_of_service():
             <div style="max-width: 800px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
                 <h1 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Terms of Service</h1>
                 <p><strong>Effective Date: February 23, 2026</strong></p>
-                <p>By using Evo Omni Publisher Engine, you agree to comply with TikTok's Terms of Service and Community Guidelines. Our service is designed for creators to manage and schedule their original content securely.</p>
-                <h3>1. Authorized Use</h3>
-                <p>Users must own the rights to all content published through our API integration.</p>
-                <hr>
-                <p><strong>Contact:</strong> dev.ia.automation@gmail.com</p>
+                <p>These Terms of Service ("Terms") govern your use of <strong>Evo Omni Publisher Engine</strong>. By connecting your account, you agree to these Terms.</p>
+
+                <h3>1. Purpose of the Service</h3>
+                <p>Evo Omni is a tool designed to facilitate the scheduling and automated publication of video content to social media platforms via official APIs.</p>
+
+                <h3>2. Compliance with Platform Rules</h3>
+                <p>Users must strictly adhere to <strong>TikTok's Community Guidelines</strong> and Terms of Service. Evo Omni reserves the right to terminate access for users who engage in spam, copyright infringement, or malicious activity.</p>
+
+                <h3>3. Content Responsibility</h3>
+                <p>You are solely responsible for the content you upload. You must own or have the necessary licenses for all media processed through our engine.</p>
+
+                <h3>4. Limitation of Liability</h3>
+                <p>Evo Omni provides the service "as is". We are not liable for any account suspensions or technical failures resulting from the use of the TikTok API.</p>
+
+                <hr style="margin: 30px 0; border: 0; border-top: 1px solid #e2e8f0;">
+                <p><strong>Contact & Support:</strong> 
+                   <a href="mailto:dev.ia.automation@gmail.com" style="color: #2563eb; text-decoration: none; font-weight: bold;">dev.ia.automation@gmail.com</a>
+                </p>
             </div>
         </body>
     </html>
@@ -140,14 +153,23 @@ async def privacy_policy():
             <div style="max-width: 800px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
                 <h1 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Privacy Policy</h1>
                 <p><strong>Last Updated: February 23, 2026</strong></p>
-                <p>At Evo Omni, we value your privacy:</p>
-                <ul>
-                    <li>We only store encrypted OAuth tokens to manage your social media publications.</li>
-                    <li>We do not store personal passwords or sell user data to third parties.</li>
-                    <li>Access can be revoked at any time via your TikTok security settings.</li>
-                </ul>
-                <hr>
-                <p><strong>Inquiries:</strong> dev.ia.automation@gmail.com</p>
+
+                <h3>1. Information We Collect</h3>
+                <p>We only collect and store the <strong>OAuth Access and Refresh Tokens</strong> provided by TikTok. We do not access private messages or contact lists.</p>
+
+                <h3>2. Data Retention & Security</h3>
+                <p>Tokens are stored using industry-standard encryption. We retain this data only as long as your account is connected to our service.</p>
+
+                <h3>3. Data Deletion</h3>
+                <p>You can revoke Evo Omni's access at any time through your TikTok settings. To request manual deletion of your tokens, please email us below.</p>
+
+                <h3>4. Third-Party Sharing</h3>
+                <p>We <strong>never</strong> sell or share your personal information with third parties.</p>
+
+                <hr style="margin: 30px 0; border: 0; border-top: 1px solid #e2e8f0;">
+                <p><strong>Privacy Inquiries:</strong> 
+                   <a href="mailto:dev.ia.automation@gmail.com" style="color: #2563eb; text-decoration: none; font-weight: bold;">dev.ia.automation@gmail.com</a>
+                </p>
             </div>
         </body>
     </html>
@@ -175,7 +197,9 @@ async def root_page():
                 <a href="/api/v1/oauth/login/tiktok/1" class="btn">Connect TikTok Account</a>
                 <div class="links">
                     <a href="/terms">Terms of Service</a> • <a href="/privacy">Privacy Policy</a>
-                    <p style="margin-top: 20px;">Support: dev.ia.automation@gmail.com</p>
+                    <p style="margin-top: 25px;">
+                        Support: <a href="mailto:dev.ia.automation@gmail.com" class="support-link">dev.ia.automation@gmail.com</a>
+                    </p>
                 </div>
             </div>
         </body>
