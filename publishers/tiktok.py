@@ -2,6 +2,7 @@
 import requests
 import logging
 import os
+import json
 
 logger = logging.getLogger("TikTok-API")
 
@@ -9,32 +10,32 @@ logger = logging.getLogger("TikTok-API")
 def upload_video_to_tiktok(video_path, title, token_data):
     """
     Uploads a video to TikTok using the official Content Posting API V2.
-    Note: For unaudited apps (Draft mode), privacy_level MUST be 'SELF_ONLY'.
+    NOTE: For un-audited apps, the TikTok ACCOUNT must be set to 'Private'
+    in the mobile app settings, and privacy_level must be 'SELF_ONLY'.
     """
     logger.info(f"Starting REAL TikTok upload process for: {title}")
 
     access_token = token_data.get('access_token')
 
     if not access_token:
-        logger.error("No access token found in token_data")
+        logger.error("No access token found in token_data. Cannot proceed.")
         return False
 
     try:
         file_size = os.path.getsize(video_path)
 
-        # 1. Initialize the upload (Query TikTok for an upload URL)
-        # Endpoint: https://developers.tiktok.com/doc/content-posting-api-reference-post-video/
+        # 1. Initialize the upload
         init_url = "https://open.tiktokapis.com/v2/post/publish/video/init/"
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json; charset=UTF-8"
         }
 
-        # We must use 'SELF_ONLY' because the app is not yet audited by TikTok
+        # Payload optimized for unaudited developer applications
         body = {
             "post_info": {
                 "title": title,
-                "privacy_level": "SELF_ONLY",
+                "privacy_level": "SELF_ONLY",  # This makes the post private
                 "disable_duet": False,
                 "disable_comment": False,
                 "disable_stitch": False,
@@ -48,34 +49,43 @@ def upload_video_to_tiktok(video_path, title, token_data):
             }
         }
 
-        logger.info(f"Initializing TikTok upload for file: {os.path.basename(video_path)}")
+        logger.info(f"Initializing upload for {os.path.basename(video_path)} ({file_size} bytes)")
+
+        # Perform the initialization request
         response = requests.post(init_url, headers=headers, json=body)
         res_json = response.json()
 
-        if response.status_code != 200 or "data" not in res_json:
-            logger.error(f"Failed to initialize TikTok upload: {res_json}")
+        if response.status_code != 200:
+            logger.error(f"Failed to initialize TikTok upload. Status: {response.status_code}")
+            logger.error(f"Response: {json.dumps(res_json)}")
+            return False
+
+        if "data" not in res_json:
+            logger.error(f"Missing 'data' in TikTok response: {res_json}")
             return False
 
         upload_url = res_json['data']['upload_url']
         publish_id = res_json['data']['publish_id']
 
-        # 2. Upload the binary file (Streaming to the provided URL)
-        logger.info(f"Streaming {file_size} bytes to TikTok...")
+        # 2. Upload the binary file (Streaming)
+        logger.info(f"Streaming binary data to TikTok. Publish ID: {publish_id}")
+
         with open(video_path, 'rb') as f:
             upload_headers = {
                 "Content-Type": "video/mp4",
                 "Content-Length": str(file_size)
             }
-            # The binary data must be sent via a PUT request to the upload_url
+            # TikTok expects a PUT request with the raw bytes to the provided upload_url
             put_response = requests.put(upload_url, data=f, headers=upload_headers)
 
         if put_response.status_code in [200, 201]:
-            logger.info(f"✅ SUCCESS! TikTok Video successfully published in private mode. ID: {publish_id}")
+            logger.info(f"✅ SUCCESS! TikTok Video successfully published (Private mode).")
             return True
         else:
-            logger.error(f"Binary upload failed: {put_response.text}")
+            logger.error(f"Binary upload failed with status {put_response.status_code}")
+            logger.error(f"PUT Response: {put_response.text}")
             return False
 
     except Exception as e:
-        logger.error(f"❌ TikTok upload failed: {str(e)}")
+        logger.error(f"❌ TikTok upload critical failure: {str(e)}")
         return False
