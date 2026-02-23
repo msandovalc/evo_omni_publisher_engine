@@ -32,7 +32,7 @@ def upload_video_to_tiktok(video_path, title, token_data):
         body = {
             "post_info": {
                 "title": title,
-                "privacy_level": "PUBLIC_TO_EVERYONE",
+                "privacy_level": "SELF_ONLY",
                 "disable_duet": False,
                 "disable_comment": False,
                 "disable_stitch": False,
