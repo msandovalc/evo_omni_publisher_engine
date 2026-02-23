@@ -37,6 +37,10 @@ YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 TIKTOK_CLIENT_ID = os.getenv("TIKTOK_CLIENT_ID")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET")
 
+# --- FACEBOOK / INSTAGRAM CONFIGURATION ---
+FB_APP_ID = os.getenv("FACEBOOK_APP_ID")
+FB_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
+FB_REDIRECT_URI = f"{BASE_URL}/api/v1/oauth/callback/facebook"
 
 @router.get("/login/{platform}/{client_id}")
 def login(platform: str, client_id: int):
@@ -75,6 +79,22 @@ def login(platform: str, client_id: int):
         }
         auth_url = f"https://www.tiktok.com/v2/auth/authorize/?{urllib.parse.urlencode(params)}"
         logger.info(f"🚀 Redirecting to TikTok: {auth_url}")
+        return RedirectResponse(auth_url)
+
+    elif platform == "instagram":
+        redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/instagram"
+        # Scopes required for Reels publishing and account management
+        scopes = "instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list,public_profile"
+
+        params = {
+            "client_id": FB_APP_ID,
+            "redirect_uri": redirect_uri,
+            "scope": scopes,
+            "state": state_payload,
+            "response_type": "code"
+        }
+        auth_url = f"https://www.facebook.com/v22.0/dialog/oauth?{urllib.parse.urlencode(params)}"
+        logger.info(f"🚀 Redirecting to Facebook/Instagram: {auth_url}")
         return RedirectResponse(auth_url)
 
     raise HTTPException(status_code=400, detail=f"Platform {platform} is not supported.")
@@ -149,6 +169,60 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             logger.error(f"❌ TikTok Token Exchange failed: {token_data}")
             raise HTTPException(status_code=400, detail="Could not retrieve TikTok tokens")
 
+    # --- INSTAGRAM EXCHANGE (Request based) ---
+    elif platform == "instagram":
+        redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/instagram"
+
+        # 1. Exchange code for Short-Lived Access Token
+        token_url = "https://graph.facebook.com/v19.0/oauth/access_token"
+        params = {
+            "client_id": FB_APP_ID,
+            "redirect_uri": redirect_uri,
+            "client_secret": FB_APP_SECRET,
+            "code": code
+        }
+        res = requests.get(token_url, params=params).json()
+        short_token = res.get("access_token")
+
+        if not short_token:
+            logger.error(f"❌ Instagram Token Exchange failed: {res}")
+            raise HTTPException(status_code=400, detail="Could not retrieve short-lived token")
+
+        # 2. Exchange for Long-Lived Access Token (60 days)
+        ll_params = {
+            "grant_type": "fb_exchange_token",
+            "client_id": FB_APP_ID,
+            "client_secret": FB_APP_SECRET,
+            "fb_exchange_token": short_token
+        }
+        ll_res = requests.get("https://graph.facebook.com/v22.0/oauth/access_token", params=ll_params).json()
+        long_token = ll_res.get("access_token")
+
+        # 3. Discover Instagram Business Account ID
+        # Fetch pages to find the linked Instagram account
+        pages_res = requests.get(f"https://graph.facebook.com/v22.0/me/accounts?access_token={long_token}").json()
+        instagram_account_id = None
+
+        if "data" in pages_res:
+            for page in pages_res["data"]:
+                page_id = page["id"]
+                ig_info = requests.get(
+                    f"https://graph.facebook.com/v22.0/{page_id}?fields=instagram_business_account&access_token={long_token}"
+                ).json()
+                if "instagram_business_account" in ig_info:
+                    instagram_account_id = ig_info["instagram_business_account"]["id"]
+                    break
+
+        if not instagram_account_id:
+            logger.error("❌ No linked Instagram Business Account found for this user.")
+            raise HTTPException(status_code=400, detail="No linked Instagram account found")
+
+        token_data = {
+            "access_token": long_token,
+            "instagram_account_id": instagram_account_id,
+            "expires_in": ll_res.get("expires_in")
+        }
+
     # --- DATABASE PERSISTENCE ---
     existing_cred = db.query(SocialCredential).filter_by(
         client_id=client_id, platform=platform
@@ -169,23 +243,118 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
     db.commit()
     logger.info(f"🎉 {platform.upper()} linking process complete.")
 
+    # 1. Define platform-specific styles and icons
+    platform_meta = {
+        "youtube": {
+            "color": "#FF0000",
+            "icon": "https://cdn-icons-png.flaticon.com/512/1384/1384060.png",
+            "label": "YouTube"
+        },
+        "tiktok": {
+            "color": "#00f2ea", # TikTok Cyan/Red mix effect
+            "icon": "https://cdn-icons-png.flaticon.com/512/3046/3046121.png",
+            "label": "TikTok"
+        },
+        "instagram": {
+            "color": "#E1306C",
+            "icon": "https://cdn-icons-png.flaticon.com/512/174/174855.png",
+            "label": "Instagram"
+        }
+    }
+
+    # Get current platform metadata (default to generic if not found)
+    meta = platform_meta.get(platform.lower(), {
+        "color": "#22c55e",
+        "icon": "✅",
+        "label": platform.capitalize()
+    })
+
     return HTMLResponse(content=f"""
         <html>
             <head>
+                <title>{meta['label']} Connected | EVO Omni</title>
                 <style>
-                    body {{ font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: white; text-align: center; }}
-                    .card {{ background: #1e293b; padding: 50px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }}
-                    .icon {{ font-size: 60px; margin-bottom: 20px; }}
-                    h1 {{ color: #22c55e; margin-bottom: 10px; }}
-                    p {{ color: #94a3b8; font-size: 18px; }}
+                    body {{ 
+                        font-family: 'Inter', -apple-system, sans-serif; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center; 
+                        height: 100vh; 
+                        background: #0f172a; 
+                        color: white; 
+                        margin: 0;
+                    }}
+                    .card {{ 
+                        background: #1e293b; 
+                        padding: 60px; 
+                        border-radius: 24px; 
+                        box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
+                        border: 1px solid #334155; 
+                        max-width: 400px;
+                        width: 90%;
+                        position: relative;
+                        overflow: hidden;
+                    }}
+                    .card::before {{
+                        content: "";
+                        position: absolute;
+                        top: 0; left: 0; width: 100%; height: 5px;
+                        background: {meta['color']};
+                    }}
+                    .logo-container {{
+                        width: 80px;
+                        height: 80px;
+                        background: #0f172a;
+                        border-radius: 20px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin: 0 auto 25px;
+                        border: 2px solid #334155;
+                    }}
+                    .logo-container img {{
+                        width: 45px;
+                        height: 45px;
+                        object-fit: contain;
+                    }}
+                    h1 {{ 
+                        font-size: 24px;
+                        margin-bottom: 10px; 
+                        color: white;
+                    }}
+                    p {{ 
+                        color: #94a3b8; 
+                        font-size: 16px; 
+                        line-height: 1.5;
+                        margin-bottom: 30px;
+                    }}
+                    .platform-badge {{
+                        display: inline-block;
+                        padding: 5px 15px;
+                        border-radius: 20px;
+                        background: {meta['color']}33; /* 20% opacity */
+                        color: {meta['color']};
+                        font-weight: bold;
+                        font-size: 14px;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                    }}
+                    .footer-text {{
+                        font-size: 13px;
+                        opacity: 0.6;
+                        margin-top: 20px;
+                    }}
                 </style>
             </head>
             <body>
                 <div class="card">
-                    <div class="icon">✅</div>
-                    <h1>Account Linked!</h1>
-                    <p>Your <strong>{platform.capitalize()}</strong> account is now connected to <strong>EVO Omni</strong>.</p>
-                    <p style="font-size: 14px; margin-top: 20px;">You can close this window and return to your dashboard.</p>
+                    <div class="logo-container">
+                        <img src="{meta['icon']}" alt="{meta['label']}">
+                    </div>
+                    <div class="platform-badge">{meta['label']}</div>
+                    <h1>Success!</h1>
+                    <p>Your <strong>{meta['label']}</strong> account has been securely linked to the <strong>EVO Omni Engine</strong>.</p>
+                    <div class="footer-text">You can safely close this tab now.</div>
                 </div>
             </body>
         </html>

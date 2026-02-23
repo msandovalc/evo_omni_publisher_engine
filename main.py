@@ -5,6 +5,7 @@ import os
 import threading
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from starlette.responses import FileResponse
@@ -27,6 +28,11 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("EVO-Main")
+
+# Create temp directory if it doesn't exist
+TEMP_MEDIA_DIR = "temp_media"
+if not os.path.exists(TEMP_MEDIA_DIR):
+    os.makedirs(TEMP_MEDIA_DIR)
 
 
 def run_db_listener():
@@ -88,6 +94,11 @@ app = FastAPI(
     title="Evo Omni Publisher Engine API",
     lifespan=lifespan
 )
+
+# Mount the static directory so Meta can access videos via URL
+app.mount("/temp", StaticFiles(directory=TEMP_MEDIA_DIR), name="temp")
+
+logger.info(f"[Main] Static route /temp mounted pointing to {TEMP_MEDIA_DIR}")
 
 @app.post("/")
 async def root_post_handler():

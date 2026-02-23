@@ -3,11 +3,57 @@ import requests
 import logging
 import os
 import json
+from sqlalchemy.orm import Session
+from database.models import SocialCredential
 
 logger = logging.getLogger("TikTok-API")
 
+def refresh_tiktok_token(client_id: int, token_data: dict, db: Session):
+    """
+    Uses the refresh_token to obtain a new access_token from TikTok.
+    Updates the database with the new token information.
+    """
+    try:
+        refresh_token = token_data.get('refresh_token')
+        client_key = os.getenv("TIKTOK_CLIENT_ID")
+        client_secret = os.getenv("TIKTOK_CLIENT_SECRET")
 
-def upload_video_to_tiktok(video_path, title, token_data):
+        logger.info(f"[TikTok-Refresh] Attempting to refresh token for Client {client_id}...")
+
+        response = requests.post(
+            "https://open.tiktokapis.com/v2/oauth/token/",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "client_key": client_key,
+                "client_secret": client_secret,
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            }
+        )
+
+        new_data = response.json()
+
+        if response.status_code == 200 and "access_token" in new_data:
+            # Update Database
+            cred = db.query(SocialCredential).filter_by(
+                client_id=client_id,
+                platform="tiktok"
+            ).first()
+
+            if cred:
+                cred.token_data = new_data
+                db.commit()
+                logger.info(f"✅ [TikTok-Refresh] Database updated for Client {client_id}")
+                return new_data
+        else:
+            logger.error(f"❌ [TikTok-Refresh] Failed to refresh: {new_data}")
+            return None
+
+    except Exception as e:
+        logger.error(f"❌ [TikTok-Refresh] Critical error during refresh: {str(e)}")
+        return None
+
+def upload_video_to_tiktok(video_path, title, token_data, client_id=None, db=None):
     """
     Uploads a video to TikTok using the official Content Posting API V2.
     NOTE: For un-audited apps, the TikTok ACCOUNT must be set to 'Private'.
@@ -51,6 +97,22 @@ def upload_video_to_tiktok(video_path, title, token_data):
         logger.info(f"Initializing upload for {os.path.basename(video_path)} ({file_size} bytes)")
         response = requests.post(init_url, headers=headers, json=body)
         res_json = response.json()
+
+        # Handle Expired Token (Error 401 or specific TikTok error codes)
+        if response.status_code == 401 or res_json.get("error", {}).get("code") == "access_token_invalid":
+            logger.warning("⚠️ TikTok Access Token expired. Attempting refresh...")
+            if db and client_id:
+                new_tokens = refresh_tiktok_token(client_id, token_data, db)
+                if new_tokens:
+                    # Retry with new token
+                    headers["Authorization"] = f"Bearer {new_tokens['access_token']}"
+                    response = requests.post(init_url, headers=headers, json=body)
+                    res_json = response.json()
+                else:
+                    return False
+            else:
+                logger.error("Cannot refresh token: Database session or Client ID missing.")
+                return False
 
         if response.status_code != 200 or "data" not in res_json:
             logger.error(f"Failed to initialize: {json.dumps(res_json)}")
