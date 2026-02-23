@@ -118,22 +118,15 @@ async def serve_tiktok_txt(filename: str):
 async def terms_of_service():
     return """
     <html>
-        <head><title>Terms of Service | EVO Omni</title></head>
-        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 50px; max-width: 900px; margin: auto; line-height: 1.8; color: #1e293b; background-color: #f8fafc;">
-            <div style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                <h1 style="color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Terms of Service</h1>
-                <p><strong>Last Updated: February 23, 2026</strong></p>
-                <p>Welcome to <strong>Evo Omni Publisher Engine</strong>. By using our services, you agree to these terms:</p>
-                <h3>1. Use of Service</h3>
-                <p>Evo Omni provides automation for scheduling and publishing video content. You must comply with TikTok's Community Guidelines and Terms of Service at all times.</p>
-                <h3>2. Content Ownership</h3>
-                <p>You retain all rights to the content you publish. Evo Omni does not claim ownership of any media processed through our engine.</p>
-                <h3>3. Limitation of Liability</h3>
-                <p>We are not responsible for account restrictions resulting from the misuse of automation or the publication of prohibited content.</p>
-                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;">
-                <p><strong>Contact Support:</strong><br>
-                Email: <a href="mailto:dev.ia.automation@gmail.com" style="color: #2563eb;">dev.ia.automation@gmail.com</a><br>
-                Owner: Manuel Sandoval</p>
+        <body style="font-family: sans-serif; padding: 50px; background: #f8fafc; color: #1e293b; line-height: 1.7;">
+            <div style="max-width: 800px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                <h1 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Terms of Service</h1>
+                <p><strong>Effective Date: February 23, 2026</strong></p>
+                <p>By using Evo Omni Publisher Engine, you agree to comply with TikTok's Terms of Service and Community Guidelines. Our service is designed for creators to manage and schedule their original content securely.</p>
+                <h3>1. Authorized Use</h3>
+                <p>Users must own the rights to all content published through our API integration.</p>
+                <hr>
+                <p><strong>Contact:</strong> dev.ia.automation@gmail.com</p>
             </div>
         </body>
     </html>
@@ -143,21 +136,18 @@ async def terms_of_service():
 async def privacy_policy():
     return """
     <html>
-        <head><title>Privacy Policy | EVO Omni</title></head>
-        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 50px; max-width: 900px; margin: auto; line-height: 1.8; color: #1e293b; background-color: #f8fafc;">
-            <div style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                <h1 style="color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Privacy Policy</h1>
+        <body style="font-family: sans-serif; padding: 50px; background: #f8fafc; color: #1e293b; line-height: 1.7;">
+            <div style="max-width: 800px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                <h1 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Privacy Policy</h1>
                 <p><strong>Last Updated: February 23, 2026</strong></p>
-                <p>Your privacy is our priority. This policy describes how we handle your information:</p>
+                <p>At Evo Omni, we value your privacy:</p>
                 <ul>
-                    <li><strong>Data Collection</strong>: We only store OAuth tokens (Access and Refresh) required to interact with social media APIs on your behalf.</li>
-                    <li><strong>Security</strong>: Tokens are encrypted and stored in a private database. We never see or store your social media passwords.</li>
-                    <li><strong>Third-Party Disclosure</strong>: We do not sell, trade, or share your data with external parties.</li>
-                    <li><strong>Transparency</strong>: You can revoke Evo Omni's access at any time through your Google or TikTok security settings.</li>
+                    <li>We only store encrypted OAuth tokens to manage your social media publications.</li>
+                    <li>We do not store personal passwords or sell user data to third parties.</li>
+                    <li>Access can be revoked at any time via your TikTok security settings.</li>
                 </ul>
-                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;">
-                <p><strong>Privacy Inquiries:</strong><br>
-                Email: <a href="mailto:dev.ia.automation@gmail.com" style="color: #2563eb;">dev.ia.automation@gmail.com</a></p>
+                <hr>
+                <p><strong>Inquiries:</strong> dev.ia.automation@gmail.com</p>
             </div>
         </body>
     </html>
@@ -170,21 +160,22 @@ async def root_page():
         <head>
             <title>Evo Omni Publisher Engine</title>
             <style>
-                body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 100px; }
-                .container { max-width: 600px; margin: auto; padding: 40px; background: #1e293b; border-radius: 16px; border: 1px solid #334155; }
-                .btn { background-color: #fe2c55; color: white; padding: 16px 32px; text-decoration: none; font-size: 18px; border-radius: 12px; font-weight: bold; display: inline-block; transition: 0.3s; }
+                body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 100px; margin: 0; }
+                .container { max-width: 600px; margin: auto; padding: 40px; background: #1e293b; border-radius: 20px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+                .btn { background-color: #fe2c55; color: white; padding: 16px 32px; text-decoration: none; font-size: 18px; border-radius: 12px; font-weight: bold; display: inline-block; transition: 0.3s; margin-top: 20px; }
                 .btn:hover { background-color: #e11d48; transform: translateY(-2px); }
-                .links { margin-top: 30px; font-size: 14px; }
-                .links a { color: #94a3b8; text-decoration: none; margin: 0 10px; }
+                .links { margin-top: 40px; font-size: 14px; color: #94a3b8; }
+                .links a { color: #38bdf8; text-decoration: none; margin: 0 10px; }
             </style>
         </head>
         <body>
             <div class="container">
-                <h1 style="font-size: 2.5rem; margin-bottom: 10px;">🚀 Evo Omni</h1>
-                <p style="color: #94a3b8; margin-bottom: 40px;">Professional Cloud-to-Social Automation</p>
+                <h1 style="font-size: 2.8rem; margin-bottom: 10px;">🚀 Evo Omni</h1>
+                <p style="color: #94a3b8; font-size: 1.1rem;">The Professional Cloud-to-Social Automation Hub.</p>
                 <a href="/api/v1/oauth/login/tiktok/1" class="btn">Connect TikTok Account</a>
                 <div class="links">
                     <a href="/terms">Terms of Service</a> • <a href="/privacy">Privacy Policy</a>
+                    <p style="margin-top: 20px;">Support: dev.ia.automation@gmail.com</p>
                 </div>
             </div>
         </body>
