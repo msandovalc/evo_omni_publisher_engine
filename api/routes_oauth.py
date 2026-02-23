@@ -4,7 +4,7 @@ import logging
 import urllib.parse
 import requests  # Required for real-time token exchange
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from google_auth_oauthlib.flow import Flow
 from dotenv import load_dotenv
@@ -169,9 +169,24 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
     db.commit()
     logger.info(f"🎉 {platform.upper()} linking process complete.")
 
-    return {
-        "status": "success",
-        "platform": platform,
-        "client_id": client_id,
-        "message": f"{platform.capitalize()} account linked successfully!"
-    }
+    return HTMLResponse(content=f"""
+        <html>
+            <head>
+                <style>
+                    body {{ font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: white; text-align: center; }}
+                    .card {{ background: #1e293b; padding: 50px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }}
+                    .icon {{ font-size: 60px; margin-bottom: 20px; }}
+                    h1 {{ color: #22c55e; margin-bottom: 10px; }}
+                    p {{ color: #94a3b8; font-size: 18px; }}
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div class="icon">✅</div>
+                    <h1>Account Linked!</h1>
+                    <p>Your <strong>{platform.capitalize()}</strong> account is now connected to <strong>EVO Omni</strong>.</p>
+                    <p style="font-size: 14px; margin-top: 20px;">You can close this window and return to your dashboard.</p>
+                </div>
+            </body>
+        </html>
+    """)
