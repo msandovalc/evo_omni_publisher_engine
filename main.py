@@ -167,7 +167,7 @@ async def root_page():
             <h1>🚀 Evo Omni Publisher Engine</h1>
             <p>Automated Video Publishing System for Creators</p>
             <br><br>
-            <a href="/auth/tiktok/login" class="btn">Connect TikTok Account</a>
+            <a href="/api/v1/oauth/login/tiktok/1" class="btn">Connect TikTok Account</a>
         </body>
     </html>
     """

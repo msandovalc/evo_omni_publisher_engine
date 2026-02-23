@@ -47,6 +47,12 @@ def login(platform: str, client_id: int):
     Supports: youtube, tiktok, facebook, instagram.
     Routes the user to the correct authorization page based on the platform.
     """
+    logger.info("========================================")
+    logger.info(f"🟢 LOGIN ROUTE HIT!")
+    logger.info(f"👉 Platform requested: {platform}")
+    logger.info(f"👉 Internal Client ID: {client_id}")
+    logger.info("========================================")
+
     logger.info(f"Starting {platform.upper()} OAuth flow for internal client: {client_id}")
 
     # We pass the internal client_id in the 'state' parameter to recover it in the callback
@@ -54,6 +60,7 @@ def login(platform: str, client_id: int):
 
     if platform == "youtube":
         redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/youtube"
+        logger.info(f"🔗 YouTube Redirect URI: {redirect_uri}")
         flow = Flow.from_client_secrets_file(
             CLIENT_SECRETS_FILE,
             scopes=YOUTUBE_SCOPES,
@@ -65,13 +72,17 @@ def login(platform: str, client_id: int):
             prompt='consent',
             state=state_payload
         )
+        logger.info(f"🚀 Redirecting to YouTube Auth URL: {authorization_url}")
         return RedirectResponse(authorization_url)
 
     elif platform == "tiktok":
         if not TIKTOK_CLIENT_ID:
+            logger.error("❌ ERROR: TikTok Client ID not found in .env")
             raise HTTPException(status_code=500, detail="TikTok Client ID not found in .env")
 
         redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
+        logger.info(f"🔗 TikTok Redirect URI: {redirect_uri}")
+
         base_url = "https://www.tiktok.com/v2/auth/authorize/"
         params = {
             "client_key": TIKTOK_CLIENT_ID,
@@ -81,13 +92,17 @@ def login(platform: str, client_id: int):
             "state": state_payload
         }
         auth_url = f"{base_url}?{urllib.parse.urlencode(params)}"
+        logger.info(f"🚀 Redirecting to TikTok Auth URL: {auth_url}")
         return RedirectResponse(auth_url)
 
     elif platform in ["facebook", "instagram"]:
         if not META_CLIENT_ID:
+            logger.error("❌ ERROR: Meta Client ID not found in .env")
             raise HTTPException(status_code=500, detail="Meta Client ID not found in .env")
 
         redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/{platform}"
+        logger.info(f"🔗 {platform.upper()} Redirect URI: {redirect_uri}")
+
         base_url = "https://www.facebook.com/v18.0/dialog/oauth"
 
         # Scopes differ slightly between FB and IG publishing
@@ -103,9 +118,11 @@ def login(platform: str, client_id: int):
             "response_type": "code"
         }
         auth_url = f"{base_url}?{urllib.parse.urlencode(params)}"
+        logger.info(f"🚀 Redirecting to {platform.upper()} Auth URL: {auth_url}")
         return RedirectResponse(auth_url)
 
     else:
+        logger.warning(f"⚠️ Unsupported platform requested: {platform}")
         raise HTTPException(status_code=400, detail="Unsupported platform")
 
 
@@ -114,18 +131,24 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
     """
     Dynamic callback handler to catch the authorization code from any platform.
     """
-    logger.info(f"--- CALLBACK RECEIVED FROM {platform.upper()} ---")
+    logger.info("========================================")
+    logger.info(f"🟢 CALLBACK ROUTE HIT!")
+    logger.info(f"👉 Platform: {platform.upper()}")
+    logger.info(f"👉 Full request URL: {request.url}")
+    logger.info("========================================")
 
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     error = request.query_params.get("error")
 
+    logger.info(f"📥 Received Params - Code: {'Yes' if code else 'No'}, State: {state}, Error: {error}")
+
     if error:
-        logger.error(f"{platform.upper()} Auth Error: {error}")
+        logger.error(f"❌ {platform.upper()} Auth Error: {error}")
         raise HTTPException(status_code=400, detail=f"OAuth Error: {error}")
 
     if not code:
-        logger.error(f"No authorization code received from {platform.upper()}.")
+        logger.error(f"❌ No authorization code received from {platform.upper()}.")
         raise HTTPException(status_code=400, detail="Authorization code missing")
 
     # Extract client_id from the state parameter (e.g., "client_id_1" -> 1)
@@ -134,7 +157,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
         try:
             client_id = int(state.split("_")[2])
         except Exception:
-            logger.warning("Could not parse client_id from state. Using default 1.")
+            logger.warning("⚠️ Could not parse client_id from state. Using default 1.")
 
     logger.info(f"Exchanging code for {platform.upper()} tokens for client {client_id}...")
 
@@ -158,6 +181,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             "client_id": credentials.client_id,
             "scopes": credentials.scopes
         }
+        logger.info("✅ YouTube tokens successfully exchanged and extracted.")
 
     # 2. TIKTOK / FACEBOOK / INSTAGRAM TOKEN EXCHANGE
     elif platform in ["tiktok", "facebook", "instagram"]:
@@ -168,7 +192,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             "authorization_code": code,
             "status": "pending_exchange"
         }
-        logger.info(f"{platform.upper()} authorization code captured successfully.")
+        logger.info(f"✅ {platform.upper()} authorization code captured successfully.")
 
     # Save or Update in Database
     existing_cred = db.query(SocialCredential).filter_by(
@@ -177,7 +201,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
 
     if existing_cred:
         existing_cred.token_data = token_data
-        logger.info(f"Updated {platform.upper()} credentials for Client {client_id}")
+        logger.info(f"💾 Updated {platform.upper()} credentials for Client {client_id} in Database")
     else:
         new_cred = SocialCredential(
             client_id=client_id,
@@ -185,9 +209,10 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             token_data=token_data
         )
         db.add(new_cred)
-        logger.info(f"Saved NEW {platform.upper()} credentials for Client {client_id}")
+        logger.info(f"💾 Saved NEW {platform.upper()} credentials for Client {client_id} in Database")
 
     db.commit()
+    logger.info("🎉 Database commit successful.")
 
     return {
         "status": "success",
