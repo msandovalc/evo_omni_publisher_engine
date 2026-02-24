@@ -2,12 +2,13 @@ import requests
 import logging
 import time
 
-logger = logging.getLogger(__name__)
+# Set up specialized logger for Facebook
+logger = logging.getLogger("EVO-Facebook")
 
 
 class FacebookPublisher:
     """
-    Service to handle Video Reels publishing on Facebook Pages with status polling.
+    Service to handle Video Reels publishing on Facebook Pages with deep status polling.
     """
 
     def __init__(self, access_token):
@@ -32,14 +33,14 @@ class FacebookPublisher:
 
     def publish_reel(self, video_url, description, target_id):
         """
-        Publishes a Reel using a 3-phase process with asynchronous status checking.
+        Publishes a Reel using a 3-phase process with enhanced diagnostic logging.
         """
         page_token = self.get_page_access_token(target_id)
         if not page_token:
             return False
 
         try:
-            # Phase 1: Initialize the upload session
+            # PHASE 1: Initialize session
             init_url = f"{self.base_url}/{target_id}/video_reels"
             init_res = requests.post(init_url, data={
                 "upload_phase": "start",
@@ -48,55 +49,59 @@ class FacebookPublisher:
 
             video_id = init_res.get("video_id")
             if not video_id:
-                logger.error(f"[FB] Initialization failed: {init_res}")
+                logger.error(f"[FB] Initialization failed. Response: {init_res}")
                 return False
 
             logger.info(f"[FB] Session initialized. Video ID: {video_id}")
 
-            # Phase 2: Instruct Meta to pull the video file
+            # PHASE 2: Start the PULL process from VPS
             upload_res = requests.post(f"{self.base_url}/{video_id}", data={
                 "video_file_url": video_url,
                 "access_token": page_token
             }).json()
 
             if not upload_res.get("success"):
-                logger.error(f"[FB] Video pull request failed: {upload_res}")
+                logger.error(f"[FB] Pull request failed. Response: {upload_res}")
                 return False
 
-            # Phase 2.5: Polling - Wait for Facebook to process the video
-            # This prevents the 'Video Upload Is Missing' error
-            max_attempts = 10
+            # PHASE 2.5: Deep Polling with Diagnostic Logging
+            max_attempts = 15  # Increased for safety
             attempt = 1
             is_ready = False
 
             while attempt <= max_attempts:
-                logger.info(f"[FB] Checking processing status... (Attempt {attempt})")
-                # Query the video status
+                # Polling for status
                 status_res = requests.get(f"{self.base_url}/{video_id}", params={
                     "fields": "video_status",
                     "access_token": page_token
                 }).json()
 
-                # Possible statuses: 'uploading', 'processing', 'ready', 'error'
-                status = status_res.get("video_status")
+                # --- DIAGNOSTIC LOGGING ---
+                # This will let you see exactly what Meta is thinking
+                logger.info(f"[FB] Polling Attempt {attempt}/{max_attempts} - Full Response: {status_res}")
 
-                if status == "ready":
+                video_status_obj = status_res.get("video_status", {})
+                current_state = video_status_obj.get("status")
+
+                if current_state == "ready":
                     is_ready = True
-                    logger.info(f"✅ [FB] Video is ready for publication.")
+                    logger.info(f"✅ [FB] Meta confirms video is READY.")
                     break
-                elif status == "error":
-                    logger.error(f"[FB] Meta reported a processing error: {status_res}")
+                elif current_state == "error":
+                    logger.error(f"❌ [FB] Meta reported processing error: {video_status_obj}")
                     return False
 
-                # Wait before next check (increase wait time as attempts progress)
+                # If still 'processing' or 'uploading', we wait
+                logger.info(f"[FB] Current state is '{current_state}'. Waiting 15s...")
                 time.sleep(15)
                 attempt += 1
 
             if not is_ready:
-                logger.error("[FB] Timeout: Video processing took too long.")
+                logger.error(f"[FB] Timeout reached after {max_attempts} attempts.")
                 return False
 
-            # Phase 3: Finalize and publish
+            # PHASE 3: Finalize Publication
+            logger.info(f"[FB] Finalizing publication for video_id: {video_id}...")
             final_res = requests.post(init_url, data={
                 "upload_phase": "finish",
                 "video_id": video_id,
@@ -109,9 +114,9 @@ class FacebookPublisher:
                 logger.info(f"✅ [FB] Reel published successfully to Page {target_id}")
                 return True
             else:
-                logger.error(f"[FB] Finalization failed: {final_res}")
+                logger.error(f"❌ [FB] Publication finalization failed: {final_res}")
                 return False
 
         except Exception as e:
-            logger.error(f"[FB] Critical publishing error: {e}")
+            logger.error(f"❌ [FB] Critical exception: {str(e)}")
             return False
