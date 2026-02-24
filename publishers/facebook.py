@@ -9,8 +9,8 @@ class FacebookPublisher:
     Service to handle Video Reels publishing on Facebook Pages using Page Access Tokens.
     """
 
-    def __init__(self, user_access_token):
-        self.user_access_token = user_access_token
+    def __init__(self, access_token):  # Parameter name must match the Manager call
+        self.access_token = access_token
         self.base_url = "https://graph.facebook.com/v19.0"
 
     def get_page_access_token(self, page_id):
@@ -21,7 +21,7 @@ class FacebookPublisher:
             url = f"{self.base_url}/{page_id}"
             params = {
                 "fields": "access_token",
-                "access_token": self.user_access_token
+                "access_token": self.access_token  # Uses the token provided in __init__
             }
             res = requests.get(url, params=params).json()
             page_token = res.get("access_token")
@@ -39,7 +39,7 @@ class FacebookPublisher:
         """
         Publishes a Reel using the Page Access Token.
         """
-        # 1. Get the specific token for this Page
+        # Step 1: Get the specific token for this Page
         page_token = self.get_page_access_token(target_id)
         if not page_token:
             return False
@@ -49,7 +49,7 @@ class FacebookPublisher:
             init_url = f"{self.base_url}/{target_id}/video_reels"
             init_payload = {
                 "upload_phase": "start",
-                "access_token": page_token  # Using Page Token here
+                "access_token": page_token
             }
             init_res = requests.post(init_url, data=init_payload).json()
             video_id = init_res.get("video_id")
@@ -58,7 +58,7 @@ class FacebookPublisher:
                 logger.error(f"[FB] Init failed for Page {target_id}: {init_res}")
                 return False
 
-            # Phase 2: Upload the video from public VPS URL
+            # Phase 2: Request Meta to pull the video from public VPS URL
             upload_url = f"{self.base_url}/{video_id}"
             upload_payload = {
                 "video_file_url": video_url,
