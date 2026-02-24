@@ -38,6 +38,7 @@ class FacebookPublisher:
     def publish_reel(self, video_url, description, target_id):
         """
         Executes the official 3-phase Reel publishing flow for Facebook Pages.
+        Waits for 'upload_complete' before triggering the 'finish' phase.
         """
         page_token = self.get_page_access_token(target_id)
         if not page_token:
@@ -69,7 +70,7 @@ class FacebookPublisher:
             logger.info(f"[FB] PHASE 2: Requesting Meta to pull video from {video_url}...")
             upload_url = f"{self.base_rupload_url}/{video_id}"
 
-            # According to docs, credentials and file_url MUST be in the headers
+            # Credentials and file_url MUST be passed in the headers
             upload_headers = {
                 "Authorization": f"OAuth {page_token}",
                 "file_url": video_url
@@ -81,17 +82,16 @@ class FacebookPublisher:
                 logger.error(f"[FB] Pull request failed. Response: {upload_res}")
                 return False
 
-            logger.info(f"[FB] Video pull request accepted by Meta.")
+            logger.info(f"[FB] Video pull request accepted. Waiting for download to complete...")
 
             # ==========================================
-            # PHASE 2.5: Polling for Processing Status
+            # PHASE 2.5: Polling for Upload Completion
             # ==========================================
             max_attempts = 15
             attempt = 1
             is_ready = False
 
             while attempt <= max_attempts:
-                # Polling requires the ?fields=status parameter
                 status_url = f"{self.base_graph_url}/{video_id}"
                 status_params = {
                     "fields": "status",
@@ -101,13 +101,13 @@ class FacebookPublisher:
 
                 logger.info(f"[FB] Polling Attempt {attempt}/{max_attempts} - Full Response: {status_res}")
 
-                # Extract the nested status object
                 status_obj = status_res.get("status", {})
                 current_state = status_obj.get("video_status")
 
-                if current_state == "ready" or current_state == "published":
+                # The crucial fix: Trigger on 'upload_complete'
+                if current_state == "upload_complete" or current_state == "ready":
                     is_ready = True
-                    logger.info(f"✅ [FB] Meta confirms video is READY.")
+                    logger.info(f"✅ [FB] Meta confirms upload is complete. Proceeding to finish phase.")
                     break
                 elif current_state == "error":
                     logger.error(f"❌ [FB] Meta reported processing error: {status_obj}")
@@ -118,13 +118,13 @@ class FacebookPublisher:
                 attempt += 1
 
             if not is_ready:
-                logger.error(f"[FB] Timeout reached after {max_attempts} attempts. Video did not reach 'ready' state.")
+                logger.error(f"[FB] Timeout reached. Video did not reach 'upload_complete' state.")
                 return False
 
             # ==========================================
             # PHASE 3: Finalize Publication
             # ==========================================
-            logger.info(f"[FB] PHASE 3: Finalizing publication for video_id: {video_id}...")
+            logger.info(f"[FB] PHASE 3: Finalizing publication to trigger processing for video_id: {video_id}...")
             finish_payload = {
                 "upload_phase": "finish",
                 "video_id": video_id,
