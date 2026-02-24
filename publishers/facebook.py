@@ -9,7 +9,8 @@ class FacebookPublisher:
     Service to handle Video Reels publishing on Facebook Pages using Page Access Tokens.
     """
 
-    def __init__(self, access_token):  # Parameter name must match the Manager call
+    def __init__(self, access_token):
+        # The access_token passed here is the User Access Token
         self.access_token = access_token
         self.base_url = "https://graph.facebook.com/v19.0"
 
@@ -21,7 +22,7 @@ class FacebookPublisher:
             url = f"{self.base_url}/{page_id}"
             params = {
                 "fields": "access_token",
-                "access_token": self.access_token  # Uses the token provided in __init__
+                "access_token": self.access_token
             }
             res = requests.get(url, params=params).json()
             page_token = res.get("access_token")
@@ -37,15 +38,15 @@ class FacebookPublisher:
 
     def publish_reel(self, video_url, description, target_id):
         """
-        Publishes a Reel using the Page Access Token.
+        Publishes a Reel to Facebook using the 3-phase upload process.
         """
-        # Step 1: Get the specific token for this Page
+        # Step 1: Obtain the specific Page Access Token to authorize the post
         page_token = self.get_page_access_token(target_id)
         if not page_token:
             return False
 
         try:
-            # Phase 1: Initialize the upload session on the Page
+            # Phase 1: Initialize the upload session on the Facebook Page
             init_url = f"{self.base_url}/{target_id}/video_reels"
             init_payload = {
                 "upload_phase": "start",
@@ -55,20 +56,28 @@ class FacebookPublisher:
             video_id = init_res.get("video_id")
 
             if not video_id:
-                logger.error(f"[FB] Init failed for Page {target_id}: {init_res}")
+                logger.error(f"[FB] Initialization failed for Page {target_id}: {init_res}")
                 return False
 
-            # Phase 2: Request Meta to pull the video from public VPS URL
+            logger.info(f"[FB] Session initialized. Video ID: {video_id}")
+
+            # Phase 2: Instruct Meta to download the video from the VPS public URL
             upload_url = f"{self.base_url}/{video_id}"
             upload_payload = {
                 "video_file_url": video_url,
                 "access_token": page_token
             }
-            requests.post(upload_url, data=upload_payload)
+            upload_res = requests.post(upload_url, data=upload_payload).json()
+
+            if not upload_res.get("success"):
+                logger.error(f"[FB] Video pull request failed: {upload_res}")
+                return False
 
             # Phase 3: Finalize publication
+            # The 'video_id' parameter is MANDATORY here to link the session
             publish_payload = {
                 "upload_phase": "finish",
+                "video_id": video_id,
                 "video_state": "PUBLISHED",
                 "description": description,
                 "access_token": page_token
@@ -79,9 +88,9 @@ class FacebookPublisher:
                 logger.info(f"✅ [FB] Reel published successfully to Page {target_id}")
                 return True
             else:
-                logger.error(f"[FB] Publish failed: {final_res}")
+                logger.error(f"[FB] Publication finalization failed: {final_res}")
                 return False
 
         except Exception as e:
-            logger.error(f"[FB] Critical publishing error: {e}")
+            logger.error(f"[FB] Critical error during the publishing sequence: {e}")
             return False
