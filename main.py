@@ -189,32 +189,71 @@ async def privacy_policy():
 @app.get("/", response_class=HTMLResponse)
 async def root_page():
     return """
-    <html>
-        <head>
-            <title>Evo Omni Publisher Engine</title>
-            <style>
-                body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 100px; margin: 0; }
-                .container { max-width: 600px; margin: auto; padding: 40px; background: #1e293b; border-radius: 20px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-                .btn { background-color: #fe2c55; color: white; padding: 16px 32px; text-decoration: none; font-size: 18px; border-radius: 12px; font-weight: bold; display: inline-block; transition: 0.3s; margin-top: 20px; }
-                .btn:hover { background-color: #e11d48; transform: translateY(-2px); }
-                .links { margin-top: 40px; font-size: 14px; color: #94a3b8; }
-                .links a { color: #38bdf8; text-decoration: none; margin: 0 10px; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1 style="font-size: 2.8rem; margin-bottom: 10px;">🚀 Evo Omni</h1>
-                <p style="color: #94a3b8; font-size: 1.1rem;">The Professional Cloud-to-Social Automation Hub.</p>
-                <a href="/api/v1/oauth/login/tiktok/1" class="btn">Connect TikTok Account</a>
-                <div class="links">
-                    <a href="/terms">Terms of Service</a> • <a href="/privacy">Privacy Policy</a>
-                    <p style="margin-top: 25px;">
-                        Support: <a href="mailto:dev.ia.automation@gmail.com" class="support-link">dev.ia.automation@gmail.com</a>
-                    </p>
+        <html>
+            <head>
+                <title>Evo Omni Publisher Engine</title>
+                <style>
+                    body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 60px 20px; margin: 0; }
+                    .container { max-width: 500px; margin: auto; padding: 40px; background: #1e293b; border-radius: 20px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+                    
+                    /* Contenedor de botones para que se apilen verticalmente */
+                    .button-group { display: flex; flex-direction: column; gap: 15px; margin-top: 30px; }
+                    
+                    /* Estilo base de los botones basado en tu template */
+                    .btn { 
+                        color: white; 
+                        padding: 16px 20px; 
+                        text-decoration: none; 
+                        font-size: 16px; 
+                        border-radius: 12px; 
+                        font-weight: bold; 
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: 0.3s; 
+                        border: none;
+                        cursor: pointer;
+                    }
+                    .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+                    
+                    /* Colores específicos por plataforma */
+                    .btn-tiktok { background-color: #fe2c55; } /* Tu color original */
+                    .btn-instagram { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+                    .btn-youtube { background-color: #FF0000; }
+                    
+                    .links { margin-top: 40px; font-size: 14px; color: #94a3b8; }
+                    .links a { color: #38bdf8; text-decoration: none; margin: 0 10px; }
+                    .support-link { color: #38bdf8; text-decoration: none; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1 style="font-size: 2.5rem; margin-bottom: 10px; margin-top: 0;">🚀 Evo Omni</h1>
+                    <p style="color: #94a3b8; font-size: 1.1rem;">The Professional Cloud-to-Social Automation Hub.</p>
+                    
+                    <div class="button-group">
+                        <a href="/api/v1/oauth/login/tiktok/1" class="btn btn-tiktok">
+                            Connect TikTok Account
+                        </a>
+                        
+                        <a href="/api/v1/oauth/login/instagram/1" class="btn btn-instagram">
+                            Connect Instagram Business
+                        </a>
+                        
+                        <a href="/api/v1/oauth/login/youtube/1" class="btn btn-youtube">
+                            Connect YouTube Channel
+                        </a>
+                    </div>
+        
+                    <div class="links">
+                        <a href="/terms">Terms of Service</a> • <a href="/privacy">Privacy Policy</a>
+                        <p style="margin-top: 25px;">
+                            Support: <a href="mailto:dev.ia.automation@gmail.com" class="support-link">dev.ia.automation@gmail.com</a>
+                        </p>
+                    </div>
                 </div>
-            </div>
-        </body>
-    </html>
+            </body>
+        </html>
     """
 
 # Registering Routers

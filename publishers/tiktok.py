@@ -8,49 +8,39 @@ from database.models import SocialCredential
 
 logger = logging.getLogger("TikTok-API")
 
-def refresh_tiktok_token(client_id: int, token_data: dict, db: Session):
+
+def refresh_tiktok_token(client_id: int, db: Session, old_token_data: dict):
     """
-    Uses the refresh_token to obtain a new access_token from TikTok.
-    Updates the database with the new token information.
+    Calls TikTok API to refresh the access_token using the refresh_token.
     """
     try:
-        refresh_token = token_data.get('refresh_token')
-        client_key = os.getenv("TIKTOK_CLIENT_ID")
-        client_secret = os.getenv("TIKTOK_CLIENT_SECRET")
-
-        logger.info(f"[TikTok-Refresh] Attempting to refresh token for Client {client_id}...")
-
+        logger.info(f"Refreshing TikTok token for client {client_id}")
         response = requests.post(
             "https://open.tiktokapis.com/v2/oauth/token/",
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data={
-                "client_key": client_key,
-                "client_secret": client_secret,
+                "client_key": os.getenv("TIKTOK_CLIENT_ID"),
+                "client_secret": os.getenv("TIKTOK_CLIENT_SECRET"),
                 "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
+                "refresh_token": old_token_data.get("refresh_token")
             }
         )
-
         new_data = response.json()
 
         if response.status_code == 200 and "access_token" in new_data:
-            # Update Database
+            # Update DB
             cred = db.query(SocialCredential).filter_by(
-                client_id=client_id,
-                platform="tiktok"
+                client_id=client_id, platform="tiktok"
             ).first()
-
             if cred:
                 cred.token_data = new_data
                 db.commit()
-                logger.info(f"✅ [TikTok-Refresh] Database updated for Client {client_id}")
                 return new_data
-        else:
-            logger.error(f"❌ [TikTok-Refresh] Failed to refresh: {new_data}")
-            return None
 
+        logger.error(f"Failed to refresh TikTok token: {new_data}")
+        return None
     except Exception as e:
-        logger.error(f"❌ [TikTok-Refresh] Critical error during refresh: {str(e)}")
+        logger.error(f"Error during TikTok token refresh: {e}")
         return None
 
 def upload_video_to_tiktok(video_path, title, token_data, client_id=None, db=None):

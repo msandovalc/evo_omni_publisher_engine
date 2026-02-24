@@ -171,56 +171,61 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
 
     # --- INSTAGRAM EXCHANGE (Request based) ---
     elif platform == "instagram":
-        redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/instagram"
-
-        # 1. Exchange code for Short-Lived Access Token
+        # 1. Exchange short-lived code for access token
         token_url = "https://graph.facebook.com/v19.0/oauth/access_token"
         params = {
-            "client_id": FB_APP_ID,
-            "redirect_uri": redirect_uri,
-            "client_secret": FB_APP_SECRET,
+            "client_id": os.getenv("FACEBOOK_APP_ID"),
+            "client_secret": os.getenv("FACEBOOK_APP_SECRET"),
+            "redirect_uri": f"{BASE_URL}/api/v1/oauth/callback/instagram",
             "code": code
         }
         res = requests.get(token_url, params=params).json()
         short_token = res.get("access_token")
 
-        if not short_token:
-            logger.error(f"❌ Instagram Token Exchange failed: {res}")
-            raise HTTPException(status_code=400, detail="Could not retrieve short-lived token")
-
-        # 2. Exchange for Long-Lived Access Token (60 days)
+        # 2. Exchange for Long-Lived Token
         ll_params = {
             "grant_type": "fb_exchange_token",
-            "client_id": FB_APP_ID,
-            "client_secret": FB_APP_SECRET,
+            "client_id": os.getenv("FACEBOOK_APP_ID"),
+            "client_secret": os.getenv("FACEBOOK_APP_SECRET"),
             "fb_exchange_token": short_token
         }
-        ll_res = requests.get("https://graph.facebook.com/v22.0/oauth/access_token", params=ll_params).json()
+        ll_res = requests.get(token_url, params=ll_params).json()
         long_token = ll_res.get("access_token")
 
-        # 3. Discover Instagram Business Account ID
-        # Fetch pages to find the linked Instagram account
-        pages_res = requests.get(f"https://graph.facebook.com/v22.0/me/accounts?access_token={long_token}").json()
-        instagram_account_id = None
+        # 3. Discover Instagram Business Account
+        # Fetch pages linked to the user
+        pages_res = requests.get(
+            f"https://graph.facebook.com/v19.0/me/accounts?access_token={long_token}"
+        ).json()
+
+        accounts_list = []
+        selected_account_id = None
 
         if "data" in pages_res:
             for page in pages_res["data"]:
                 page_id = page["id"]
-                ig_info = requests.get(
-                    f"https://graph.facebook.com/v22.0/{page_id}?fields=instagram_business_account&access_token={long_token}"
-                ).json()
-                if "instagram_business_account" in ig_info:
-                    instagram_account_id = ig_info["instagram_business_account"]["id"]
-                    break
+                page_name = page["name"]
 
-        if not instagram_account_id:
-            logger.error("❌ No linked Instagram Business Account found for this user.")
-            raise HTTPException(status_code=400, detail="No linked Instagram account found")
+                ig_info = requests.get(
+                    f"https://graph.facebook.com/v19.0/{page_id}?fields=instagram_business_account&access_token={long_token}"
+                ).json()
+
+                if "instagram_business_account" in ig_info:
+                    ig_id = ig_info["instagram_business_account"]["id"]
+                    account_entry = {"ig_id": ig_id, "page_name": page_name, "page_id": page_id}
+                    accounts_list.append(account_entry)
+
+                    if page_name == 'El origen del todo':
+                        selected_account_id = ig_id
+
+        if not selected_account_id and accounts_list:
+            selected_account_id = accounts_list[0]['ig_id']
 
         token_data = {
             "access_token": long_token,
-            "instagram_account_id": instagram_account_id,
-            "expires_in": ll_res.get("expires_in")
+            "instagram_account_id": selected_account_id,
+            "available_accounts": accounts_list,
+            "token_type": "bearer"
         }
 
     # --- DATABASE PERSISTENCE ---

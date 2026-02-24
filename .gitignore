@@ -24,3 +24,7 @@ credentials/
 *.json
 *.pem
 temp_videos/
+
+inspect_meta_token.py
+standalone_login_test.py
+test_meta_config.py
