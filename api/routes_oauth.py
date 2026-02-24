@@ -358,7 +358,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
                     </div>
                     <div class="platform-badge">{meta['label']}</div>
                     <h1>Success!</h1>
-                    <p>Your <strong>{meta['label']}</strong> account has been securely linked to the <strong>EVO Omni Engine</strong>.</p>
+                    <p>Your <strong>{meta['label']}</strong> account has been securely linked to the <strong>EVO Omni Publisher</strong>.</p>
                     <div class="footer-text">You can safely close this tab now.</div>
                 </div>
             </body>
