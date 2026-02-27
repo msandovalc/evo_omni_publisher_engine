@@ -86,7 +86,8 @@ def login(platform: str, client_id: int, db: Session = Depends(get_db)):
 
         redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
         # Scopes: user.info.basic is needed for identity, video.publish for uploading
-        scopes = "user.info.basic,video.publish"
+        # scopes = "user.info.basic,video.publish"
+        scopes = "user.info.basic,user.info.profile,user.info.stats,video.publish,video.upload,video.list"
 
         params = {
             "client_key": TIKTOK_CLIENT_ID,
