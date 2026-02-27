@@ -257,6 +257,22 @@ async def root_page():
     </html>
     """
 
+@app.get("/dashboard.html", include_in_schema=False)
+async def serve_tiktok_dashboard():
+    """
+    Serves the MVP TikTok Dashboard HTML file for the UI audit.
+    """
+    # Gets the absolute path to the dashboard.html file located in the root directory
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
+
+    # Check if file exists to prevent server errors
+    if not os.path.exists(file_path):
+        return PlainTextResponse("Dashboard file not found. Please ensure dashboard.html is in the root directory.",
+                                 status_code=404)
+
+    return FileResponse(file_path)
+
+
 # Registering Routers
 app.include_router(publish_router)
 app.include_router(oauth_router)

@@ -42,8 +42,9 @@ FB_APP_ID = os.getenv("FACEBOOK_APP_ID")
 FB_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET")
 FB_REDIRECT_URI = f"{BASE_URL}/api/v1/oauth/callback/facebook"
 
+
 @router.get("/login/{platform}/{client_id}")
-def login(platform: str, client_id: int):
+def login(platform: str, client_id: int, db: Session = Depends(get_db)):
     """
     Initializes the OAuth flow for the requested platform.
     """
@@ -66,6 +67,17 @@ def login(platform: str, client_id: int):
         return RedirectResponse(authorization_url)
 
     elif platform == "tiktok":
+        # --- TIKTOK MVP TRICK: DELETE EXISTING TOKEN TO FORCE LOGIN SCREEN ---
+        existing_cred = db.query(SocialCredential).filter_by(
+            client_id=client_id, platform=platform
+        ).first()
+
+        if existing_cred:
+            db.delete(existing_cred)
+            db.commit()
+            logger.info(f"🗑️ Deleted existing TikTok token for client {client_id} to force login UI.")
+        # ---------------------------------------------------------------------
+
         redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
         # Scopes: user.info.basic is needed for identity, video.publish for uploading
         scopes = "user.info.basic,video.publish"
@@ -98,7 +110,6 @@ def login(platform: str, client_id: int):
         return RedirectResponse(auth_url)
 
     raise HTTPException(status_code=400, detail=f"Platform {platform} is not supported.")
-
 
 @router.get("/callback/{platform}")
 def callback(platform: str, request: Request, db: Session = Depends(get_db)):
@@ -147,27 +158,31 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
 
     # --- TIKTOK TOKEN EXCHANGE (Request based) ---
     elif platform == "tiktok":
-        redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
 
-        # We must perform a POST request to exchange the code for the access_token
-        logger.info(f"Exchanging code for TikTok access_token for client {client_id}")
-        response = requests.post(
-            "https://open.tiktokapis.com/v2/oauth/token/",
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            data={
-                "client_key": TIKTOK_CLIENT_ID,
-                "client_secret": TIKTOK_CLIENT_SECRET,
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": redirect_uri,
-            }
-        )
+        logger.info("Redirecting TikTok callback to the MVP Dashboard.")
+        return RedirectResponse(url="/dashboard.html")
 
-        token_data = response.json()
-
-        if response.status_code != 200 or "access_token" not in token_data:
-            logger.error(f"❌ TikTok Token Exchange failed: {token_data}")
-            raise HTTPException(status_code=400, detail="Could not retrieve TikTok tokens")
+        # redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
+        #
+        # # We must perform a POST request to exchange the code for the access_token
+        # logger.info(f"Exchanging code for TikTok access_token for client {client_id}")
+        # response = requests.post(
+        #     "https://open.tiktokapis.com/v2/oauth/token/",
+        #     headers={"Content-Type": "application/x-www-form-urlencoded"},
+        #     data={
+        #         "client_key": TIKTOK_CLIENT_ID,
+        #         "client_secret": TIKTOK_CLIENT_SECRET,
+        #         "code": code,
+        #         "grant_type": "authorization_code",
+        #         "redirect_uri": redirect_uri,
+        #     }
+        # )
+        #
+        # token_data = response.json()
+        #
+        # if response.status_code != 200 or "access_token" not in token_data:
+        #     logger.error(f"❌ TikTok Token Exchange failed: {token_data}")
+        #     raise HTTPException(status_code=400, detail="Could not retrieve TikTok tokens")
 
     # --- INSTAGRAM EXCHANGE (Request based) ---
     elif platform == "instagram":
