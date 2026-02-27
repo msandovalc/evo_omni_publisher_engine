@@ -347,7 +347,7 @@
                         </div>
                         ${info
                             ? `<div class="user-tag">@${info.username}</div>
-                               <div class="sync-date"><span class="status-dot"></span> Active since: ${info.last_sync}</div>
+                               <div class="sync-date"><span class="status-dot"></span> Active since: ${info.last_sync || 'Today'}</div>
                                <button onclick="window.location.href='/api/v1/oauth/login/${p.id}/1'" style="margin-top:15px; background:transparent; border:1px solid #555; color:#aaa; font-size:0.7rem; padding:5px 10px; cursor:pointer;">Reconnect</button>`
                             : `<div style="color:#666; font-size:0.9rem; margin-bottom:15px;">No account linked</div>
                                <button class="publish-btn" onclick="window.location.href='/api/v1/oauth/login/${p.id}/1'" style="padding:8px; font-size:0.8rem;">Connect ${p.id}</button>`
