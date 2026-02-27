@@ -224,9 +224,13 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             )
             user_info = user_info_res.json()
             if "data" in user_info:
-                token_data["user_info"] = user_info["data"]
-                token_data["username"] = user_info["data"].get("display_name")
-                logger.info(f"👤 TikTok User identified: {token_data['username']}")
+                data = user_info["data"]
+                display_name = data.get("display_name") or data.get(
+                    "username") or f"User_{data.get('open_id', 'Unknown')[:5]}"
+                token_data["user_info"] = data
+                token_data["display_name"] = display_name
+                logger.info(f"👤 TikTok User identified: {display_name}")
+
         except Exception as e:
             logger.warning(f"⚠️ Could not fetch TikTok user info: {str(e)}")
 

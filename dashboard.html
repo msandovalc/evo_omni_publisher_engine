@@ -316,39 +316,54 @@
         // Function to fetch and render connections
         async function loadConnectionsList() {
             const container = document.getElementById('connections-view');
-            container.innerHTML = "<p>🔄 Fetching accounts...</p>";
+            // Mostrar un loader mientras llegan los datos
+            container.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>🔄 Loading connected accounts...</p>";
 
             try {
                 const response = await fetch('/api/v1/oauth/user/profile/1');
                 const data = await response.json();
                 const profiles = data.profiles || {};
 
-                container.innerHTML = ""; // Clear loader
+                container.innerHTML = ""; // Limpiar el loader
 
-                const platforms = ['tiktok', 'instagram', 'youtube'];
+                // Definimos las plataformas que queremos mostrar
+                const platforms = [
+                    { id: 'tiktok', color: '#00f2fe', icon: 'https://cdn-icons-png.flaticon.com/512/3046/3046121.png' },
+                    { id: 'youtube', color: '#FF0000', icon: 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png' },
+                    { id: 'instagram', color: '#E1306C', icon: 'https://cdn-icons-png.flaticon.com/512/174/174855.png' }
+                ];
+
                 platforms.forEach(p => {
-                    const info = profiles[p];
+                    const info = profiles[p.id];
                     const card = document.createElement('div');
+                    // Si está conectado, le ponemos la clase 'active'
                     card.className = `connection-card ${info ? 'active' : ''}`;
+                    card.style.borderLeft = `4px solid ${info ? p.color : '#444'}`;
 
                     card.innerHTML = `
-                        <h3>${p}</h3>
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
+                            <img src="${p.icon}" style="width:24px; height:24px;">
+                            <h3 style="margin:0; text-transform:capitalize;">${p.id}</h3>
+                        </div>
                         ${info
                             ? `<div class="user-tag">@${info.username}</div>
-                               <div class="sync-date"><span class="status-dot"></span> Linked on: ${info.last_sync}</div>`
-                            : `<div style="color:#666">Not connected</div>
-                               <button onclick="window.location.href='/api/v1/oauth/login/${p}/1'" style="margin-top:10px; font-size:0.7rem;">Link Now</button>`
+                               <div class="sync-date"><span class="status-dot"></span> Active since: ${info.last_sync}</div>
+                               <button onclick="window.location.href='/api/v1/oauth/login/${p.id}/1'" style="margin-top:15px; background:transparent; border:1px solid #555; color:#aaa; font-size:0.7rem; padding:5px 10px; cursor:pointer;">Reconnect</button>`
+                            : `<div style="color:#666; font-size:0.9rem; margin-bottom:15px;">No account linked</div>
+                               <button class="publish-btn" onclick="window.location.href='/api/v1/oauth/login/${p.id}/1'" style="padding:8px; font-size:0.8rem;">Connect ${p.id}</button>`
                         }
                     `;
                     container.appendChild(card);
                 });
 
-                // Also update the header username while we are at it
+                // Actualizar el header también para que no diga @TikTok User
                 if (profiles.tiktok) {
                     document.getElementById('display-username').innerText = `@${profiles.tiktok.username}`;
                 }
+
             } catch (err) {
-                container.innerHTML = "<p style='color:var(--danger-color)'>❌ Failed to load connections.</p>";
+                console.error("Error:", err);
+                container.innerHTML = "<p style='color:var(--danger-color)'>❌ Error loading accounts.</p>";
             }
         }
 
