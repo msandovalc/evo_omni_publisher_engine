@@ -81,7 +81,7 @@
 
     <div class="main-content">
         <div class="header">
-            <h1>New TikTok Post</h1>
+            <h1 id="view-title">Create New Post</h1>
             <div class="connected-account">🟢 Connected as: <b id="display-username">@loading...</b></div>
         </div>
 
@@ -306,7 +306,7 @@
             if (view === 'create') {
                 composerView.style.display = 'block';
                 connectionsView.style.display = 'none';
-                title.innerText = "New TikTok Post";
+                title.innerText = "Create New Post";
             } else {
                 composerView.style.display = 'none';
                 connectionsView.style.display = 'grid'; // Force grid display

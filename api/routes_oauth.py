@@ -86,7 +86,7 @@ def login(platform: str, client_id: int, db: Session = Depends(get_db)):
 
         redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
         # Scopes: user.info.basic is needed for identity, video.publish for uploading
-        scopes = "user.info.basic,video.publish"
+        scopes = "user.info.basic,user.info.profile,video.publish"
 
         params = {
             "client_key": TIKTOK_CLIENT_ID,
@@ -231,26 +231,21 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             user_info_url = "https://open.tiktokapis.com/v2/user/info/?fields=display_name,username,avatar_url"
             user_res = requests.get(
                 user_info_url,
-                headers={"Authorization": f"Bearer {token_data.get('access_token')}"}
+                headers={"Authorization": f"Bearer {token_data['access_token']}"}
             ).json()
 
             logger.info(f"👤 user_res identified: {user_res}")
 
-            data_node = user_res.get("data", {})
-            user_node = data_node.get("user", {})
+            user_data = user_res.get("data", {}).get("user", {})
 
-            final_name = (
-                    user_node.get("display_name") or
-                    user_node.get("username") or
-                    f"User_{data_node.get('open_id', 'Unknown')[:5]}"
-            )
+            final_name = user_data.get("display_name") or user_data.get("username") or "TikTok User"
 
             token_data["display_name"] = final_name
             logger.info(f"👤 TikTok User identified: {final_name}")
         except Exception as e:
             logger.error(f"⚠️ Could not fetch TikTok user info: {str(e)}")
             token_data["display_name"] = "TikTok Account"
-
+ 
     # --- INSTAGRAM EXCHANGE (Request based) ---
     elif platform == "instagram":
         # 1. Exchange short-lived code for access token
