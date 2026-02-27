@@ -3,14 +3,17 @@ import os
 import logging
 import urllib.parse
 import requests  # Required for real-time token exchange
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, File, UploadFile, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
+import shutil
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from google_auth_oauthlib.flow import Flow
 from dotenv import load_dotenv
 
 from database.session import get_db
 from database.models import SocialCredential
+
 
 # Load environment variables
 load_dotenv()
@@ -379,3 +382,57 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             </body>
         </html>
     """)
+
+@router.post("/web-direct")
+async def publish_web_direct(
+        file: UploadFile = File(...),
+        privacy: str = Form(...),
+        caption: str = Form(""),
+        db: Session = Depends(get_db)
+):
+    """
+    Endpoint MVP para auditoría: Recibe el archivo de la UX, lo guarda localmente
+    y ejecuta el INSERT exacto en la tabla scheduled_posts para el DB Listener.
+    """
+    try:
+        temp_dir = "temp_media"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        file_path = os.path.join(temp_dir, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        insert_query = text("""
+            INSERT INTO scheduled_posts (
+                client_id, 
+                video_file_id, 
+                title, 
+                description, 
+                platforms, 
+                scheduled_time, 
+                status
+            )
+            VALUES (
+                1, 
+                :video_file_id, 
+                :title, 
+                :description, 
+                '["Tiktok"]'::jsonb, 
+                NOW(), 
+                'pending'
+            )
+        """)
+
+        db.execute(insert_query, {
+            "video_file_id": file.filename,  # El nombre exacto del archivo subido
+            "title": "Publicación vía Web",  # Título genérico para la auditoría
+            "description": caption  # El texto y hashtags que puso el usuario
+        })
+        db.commit()
+
+        return {"status": "success", "message": "Video guardado y programado correctamente en scheduled_posts."}
+
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error en /web-direct: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")

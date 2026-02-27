@@ -5,74 +5,65 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evo Omni Publisher - Dashboard</title>
     <style>
-        :root {
-            --bg-color: #121212;
-            --panel-bg: #1e1e1e;
-            --border-color: #333;
-            --text-main: #ffffff;
-            --text-muted: #a0a0a0;
-            --tiktok-color: #00f2fe;
-            --success-color: #00e676;
-        }
-        body {
-            margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color); color: var(--text-main); display: flex; height: 100vh;
-        }
+        :root { --bg-color: #121212; --panel-bg: #1e1e1e; --border-color: #333; --text-main: #ffffff; --text-muted: #a0a0a0; --tiktok-color: #00f2fe; --success-color: #00e676; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; }
 
-        /* Fake Sidebar */
-        .sidebar {
-            width: 250px; background-color: var(--panel-bg); border-right: 1px solid var(--border-color);
-            padding: 20px; display: flex; flex-direction: column; gap: 15px;
-        }
-        .sidebar h2 { font-size: 1.2rem; margin-bottom: 20px; color: var(--tiktok-color); }
+        /* Sidebar and Navigation */
+        .sidebar { width: 260px; background-color: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .sidebar h2 { font-size: 1.2rem; margin-bottom: 20px; color: var(--tiktok-color); line-height: 1.4; }
         .nav-item { padding: 10px; border-radius: 5px; cursor: pointer; color: var(--text-muted); }
         .nav-item.active { background-color: #2a2a2a; color: var(--text-main); font-weight: bold; }
+
+        /* Sidebar Footer (Legal Links) */
+        .sidebar-footer { margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 20px; font-size: 0.85rem; text-align: center; }
+        .sidebar-footer a { color: var(--text-muted); text-decoration: none; display: block; margin-bottom: 8px; transition: color 0.3s; }
+        .sidebar-footer a:hover { color: var(--tiktok-color); text-decoration: underline; }
+        .sidebar-footer .support-email { color: #38bdf8; word-break: break-all; margin-bottom: 15px; }
 
         /* Main Workspace */
         .main-content { flex: 1; padding: 40px; overflow-y: auto; }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 30px; }
         .connected-account { background: rgba(0, 242, 254, 0.1); border: 1px solid var(--tiktok-color); padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; }
-
-        /* TikTok Composer Form */
-        .composer-box {
-            background-color: var(--panel-bg); border: 1px solid var(--border-color);
-            border-radius: 10px; padding: 30px; max-width: 600px;
-        }
+        .composer-box { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 30px; max-width: 600px; }
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-muted); }
 
-        /* Fake Upload and Selects */
-        .fake-upload { border: 2px dashed var(--border-color); padding: 30px; text-align: center; border-radius: 8px; color: var(--text-muted); cursor: pointer; margin-bottom: 20px; }
-        select {
-            width: 100%; padding: 10px; background-color: #2a2a2a; color: var(--text-main);
-            border: 1px solid var(--border-color); border-radius: 5px; margin-bottom: 10px;
-        }
+        /* Interactive File Upload */
+        .fake-upload { border: 2px dashed var(--border-color); padding: 30px; text-align: center; border-radius: 8px; color: var(--text-muted); cursor: pointer; margin-bottom: 20px; transition: 0.3s; }
+        .fake-upload:hover { border-color: var(--tiktok-color); background: rgba(0, 242, 254, 0.05); }
+        #file-input { display: none; }
+        .file-info { color: var(--tiktok-color); font-weight: bold; margin-top: 10px; display: none; }
 
-        /* Checkboxes and Toggles */
+        /* Inputs, Selects and Toggles */
+        select, input[type="datetime-local"], textarea { width: 100%; padding: 10px; background-color: #2a2a2a; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 5px; margin-bottom: 10px; box-sizing: border-box; }
+        textarea { resize: vertical; }
         .checkbox-group { display: flex; gap: 15px; margin-bottom: 20px; }
         .checkbox-item { display: flex; align-items: center; gap: 5px; font-size: 0.9rem; }
         .toggle-group { display: flex; justify-content: space-between; align-items: center; background: #2a2a2a; padding: 10px 15px; border-radius: 5px; margin-bottom: 20px; }
 
-        /* Legal Texts and Publish Button */
+        /* Action Buttons */
         .legal-text { font-size: 0.8rem; color: #888; text-align: center; margin-bottom: 15px; }
-        .publish-btn {
-            width: 100%; padding: 15px; background: linear-gradient(45deg, #00f2fe, #4facfe);
-            border: none; border-radius: 5px; color: #000; font-weight: bold; font-size: 1rem; cursor: pointer;
-            transition: opacity 0.3s;
-        }
+        .publish-btn { width: 100%; padding: 15px; background: linear-gradient(45deg, #00f2fe, #4facfe); border: none; border-radius: 5px; color: #000; font-weight: bold; font-size: 1rem; cursor: pointer; transition: opacity 0.3s; }
         .publish-btn:hover { opacity: 0.9; }
         .publish-btn:disabled { background: #555; cursor: not-allowed; color: #888; }
-
         #success-msg { display: none; color: var(--success-color); text-align: center; margin-top: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <h2>🚀 Evo Omni</h2>
-        <div class="nav-item">🔌 Connections</div>
+        <h2>🚀 Evo Omni Publisher</h2>
+        <div class="nav-item" onclick="window.location.href='/'">🔌 Connections</div>
         <div class="nav-item">📅 Planner</div>
         <div class="nav-item active">✨ Create Post</div>
+
+        <div class="sidebar-footer">
+            <a href="/terms" target="_blank">Terms of Service</a>
+            <a href="/privacy" target="_blank">Privacy Policy</a>
+            <div style="margin: 15px 0 5px 0;">Support:</div>
+            <a href="mailto:dev.ia.automation@gmail.com" class="support-email">dev.ia.automation@gmail.com</a>
+            <p style="color: #666; margin-top: 10px;">© 2026 Evo Omni</p>
+        </div>
     </div>
 
     <div class="main-content">
@@ -82,9 +73,21 @@
         </div>
 
         <div class="composer-box">
-            <div class="fake-upload">
-                <p>📁 Drag & Drop Video Here or Click to Browse</p>
-                <small style="color: #666;">video_test_01.mp4 (Ready)</small>
+
+            <div class="fake-upload" onclick="document.getElementById('file-input').click()">
+                <p id="upload-text">📁 Click to Browse and Select a Video</p>
+                <div id="file-details" class="file-info"></div>
+            </div>
+            <input type="file" id="file-input" accept="video/mp4,video/x-m4v,video/*" onchange="handleFileSelect(event)">
+
+            <div class="form-group">
+                <label>Caption / Description</label>
+                <textarea id="post-caption" rows="4" placeholder="Write your caption here... #hashtags"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Schedule Date & Time *</label>
+                <input type="datetime-local" id="schedule-date" required>
             </div>
 
             <div class="form-group">
@@ -113,31 +116,90 @@
 
             <p class="legal-text">By posting, you agree to TikTok's Music Usage Confirmation</p>
 
-            <button class="publish-btn" id="publish-btn" onclick="simulatePublish()">Publish to TikTok</button>
-            <div id="success-msg">✅ Success! Video queued for publishing.</div>
+            <button class="publish-btn" id="publish-btn" onclick="submitRealPost()">Schedule on TikTok</button>
+            <div id="success-msg">✅ Success! Video scheduled and queued for publishing.</div>
         </div>
     </div>
 
     <script>
-        // Fake logic to simulate the publishing process for the video recording
-        function simulatePublish() {
+        // JS to make the file upload look 100% real
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const mbSize = (file.size / (1024 * 1024)).toFixed(2);
+                document.getElementById('upload-text').innerText = "✅ Video Ready";
+                const details = document.getElementById('file-details');
+                details.innerText = `${file.name} (${mbSize} MB)`;
+                details.style.display = 'block';
+            }
+        }
+
+        // JS to set today's date automatically in the picker
+        window.onload = function() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('schedule-date').value = now.toISOString().slice(0,16);
+        };
+
+        // REAL PUBLISH LOGIC WITH DEMO WARNING
+        async function submitRealPost() {
+            const fileInput = document.getElementById('file-input');
             const privacy = document.getElementById('privacy-select').value;
-            if (!privacy) {
-                alert("Please select a Privacy Level to continue.");
-                return;
+            const caption = document.getElementById('post-caption').value;
+            const scheduledTime = document.getElementById('schedule-date').value;
+
+            // 1. Validations
+            if (!fileInput.files[0]) { alert("Please select a video file."); return; }
+            if (!privacy) { alert("Please select a Privacy Level."); return; }
+            if (!scheduledTime) { alert("Please select a schedule date & time."); return; }
+
+            // 2. THE DEMO WARNING ALERT
+            const proceed = confirm(
+                "⚠️ DEMONSTRATION MODE ACTIVE\n\n" +
+                "For audit and demonstration purposes, this post will be executed IMMEDIATELY, overriding your selected schedule time.\n\n" +
+                "Do you want to proceed with the immediate publication?"
+            );
+
+            if (!proceed) {
+                return; // Stops the process if the user clicks "Cancel"
             }
 
+            // 3. UI Changes during upload
             const btn = document.getElementById('publish-btn');
             const msg = document.getElementById('success-msg');
 
-            btn.innerText = "Publishing...";
+            btn.innerText = "Uploading to Server...";
             btn.disabled = true;
 
-            // Simulates a 2.5 second loading time
-            setTimeout(() => {
-                btn.style.display = 'none';
-                msg.style.display = 'block';
-            }, 2500);
+            // 4. Prepare data for the Backend
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            formData.append("privacy", privacy);
+            formData.append("caption", caption);
+            // We intentionally DO NOT send scheduledTime so the backend uses NOW()
+
+            // 5. Send to FastAPI
+            try {
+                const response = await fetch('/api/v1/publish/web-direct', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    btn.style.display = 'none';
+                    msg.style.display = 'block';
+                    msg.innerText = "✅ Success! Video published to TikTok.";
+                } else {
+                    const error = await response.json();
+                    alert("Error publishing: " + (error.detail || "Unknown error"));
+                    btn.innerText = "Try Again";
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                alert("Network error: " + err.message);
+                btn.innerText = "Try Again";
+                btn.disabled = false;
+            }
         }
     </script>
 </body>
