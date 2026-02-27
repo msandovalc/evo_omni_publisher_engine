@@ -133,7 +133,7 @@ def get_user_profile(client_id: int, db: Session = Depends(get_db)):
 
         if c.platform == "tiktok":
             user_info = c.token_data.get("user_info", {})
-  
+
             inner_user = user_info.get("user", {}) if isinstance(user_info.get("user"), dict) else user_info
 
             user_display = (
@@ -228,24 +228,25 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
 
         # --- Fetch Real TikTok User Info ---
         try:
-            # TikTok V2 API call for user info
             user_info_url = "https://open.tiktokapis.com/v2/user/info/?fields=display_name,username,avatar_url"
             user_res = requests.get(
                 user_info_url,
-                headers={"Authorization": f"Bearer {token_data['access_token']}"}
+                headers={"Authorization": f"Bearer {token_data.get('access_token')}"}
             ).json()
 
-            if "data" in user_res:
-                user = user_res["data"]["user"]
+            logger.info(f"👤 user_res identified: {user_res}")
 
-                final_name = user.get("display_name") or user.get(
-                    "username") or f"User_{user.get('open_id', '???')[:5]}"
+            data_node = user_res.get("data", {})
+            user_node = data_node.get("user", {})
 
-                token_data["display_name"] = final_name
-                logger.info(f"👤 TikTok User identified: {final_name}")
-            else:
-                token_data["display_name"] = "TikTok Account"
+            final_name = (
+                    user_node.get("display_name") or
+                    user_node.get("username") or
+                    f"User_{data_node.get('open_id', 'Unknown')[:5]}"
+            )
 
+            token_data["display_name"] = final_name
+            logger.info(f"👤 TikTok User identified: {final_name}")
         except Exception as e:
             logger.error(f"⚠️ Could not fetch TikTok user info: {str(e)}")
             token_data["display_name"] = "TikTok Account"

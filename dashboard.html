@@ -291,15 +291,17 @@
         }
 
         // Function to switch between views
-        function switchView(event, view) {
+        // 1. Switch between Post Creator and Connections Grid
+        async function switchView(event, view) {
             const composerView = document.getElementById('composer-view');
             const connectionsView = document.getElementById('connections-view');
             const title = document.getElementById('view-title');
 
-            // Quitar 'active' de todos
+            // Update Sidebar Active State
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            // Agregar 'active' al que clickeaste usando event.currentTarget
-            event.currentTarget.classList.add('active');
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            }
 
             if (view === 'create') {
                 composerView.style.display = 'block';
@@ -307,26 +309,25 @@
                 title.innerText = "New TikTok Post";
             } else {
                 composerView.style.display = 'none';
-                connectionsView.style.display = 'grid';
+                connectionsView.style.display = 'grid'; // Force grid display
                 title.innerText = "Managed Connections";
-                loadConnectionsList(); // Esta función llenará el div de las tarjetas
+                await loadConnectionsList(); // Refresh data when opening
             }
         }
 
         // Function to fetch and render connections
+        // 2. Fetch and render account cards
         async function loadConnectionsList() {
             const container = document.getElementById('connections-view');
-            // Mostrar un loader mientras llegan los datos
-            container.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>🔄 Loading connected accounts...</p>";
+            container.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>🔄 Loading accounts...</p>";
 
             try {
                 const response = await fetch('/api/v1/oauth/user/profile/1');
                 const data = await response.json();
                 const profiles = data.profiles || {};
 
-                container.innerHTML = ""; // Limpiar el loader
+                container.innerHTML = ""; // Clear loader
 
-                // Definimos las plataformas que queremos mostrar
                 const platforms = [
                     { id: 'tiktok', color: '#00f2fe', icon: 'https://cdn-icons-png.flaticon.com/512/3046/3046121.png' },
                     { id: 'youtube', color: '#FF0000', icon: 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png' },
@@ -336,7 +337,6 @@
                 platforms.forEach(p => {
                     const info = profiles[p.id];
                     const card = document.createElement('div');
-                    // Si está conectado, le ponemos la clase 'active'
                     card.className = `connection-card ${info ? 'active' : ''}`;
                     card.style.borderLeft = `4px solid ${info ? p.color : '#444'}`;
 
@@ -356,14 +356,19 @@
                     container.appendChild(card);
                 });
 
-                // Actualizar el header también para que no diga @TikTok User
-                if (profiles.tiktok) {
-                    document.getElementById('display-username').innerText = `@${profiles.tiktok.username}`;
+                // Sync Header Username
+                const headerName = document.getElementById('display-username');
+                if (profiles.tiktok && headerName) {
+                    headerName.innerText = `@${profiles.tiktok.username}`;
                 }
 
+                // Sync Sidebar Badge
+                const connNav = document.querySelector('.nav-item:nth-child(1)');
+                const activeCount = Object.keys(profiles).length;
+                if (connNav) connNav.innerHTML = `🔌 Connections <span style="font-size:0.7rem; color:var(--success-color)">(${activeCount} Active)</span>`;
+
             } catch (err) {
-                console.error("Error:", err);
-                container.innerHTML = "<p style='color:var(--danger-color)'>❌ Error loading accounts.</p>";
+                console.error("Dashboard Load Error:", err);
             }
         }
 
@@ -374,8 +379,7 @@
             document.getElementById('schedule-date').value = now.toISOString().slice(0,16);
 
             // FETCH DYNAMIC DATA
-            fetchAccountData();
-            updateUIWithProfile();
+            loadConnectionsList();
         };
     </script>
 </body>
