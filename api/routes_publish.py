@@ -16,6 +16,8 @@ from storage.oracle_s3 import upload_video
 
 logger = logging.getLogger("Publish-API")
 
+# Version Marker
+ROUTE_VERSION = "2.5.2-DEBUG"
 
 # --- 1. PYDANTIC SCHEMAS ---
 class PostCreate(BaseModel):
@@ -69,15 +71,12 @@ async def publish_web_direct(
         caption: str = Form(""),
         db: Session = Depends(get_db)
 ):
-    """
-    Direct Dashboard Publication Logic:
-    1. Buffered save to VPS local disk.
-    2. Real-time sync to Oracle Cloud Storage.
-    3. Database record creation to trigger Publisher-Manager.
-    """
-    try:
-        logger.info(f"📥 [Web-Direct] Processing upload for: {file.filename}")
+    # HIGH VISIBILITY LOGS
+    logger.info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    logger.info(f"XXX INCOMING REQUEST: {file.filename} [VER: {ROUTE_VERSION}]")
+    logger.info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
+    try:
         # Step 1: VPS Local Buffer
         temp_dir = "temp_media"
         os.makedirs(temp_dir, exist_ok=True)
@@ -85,44 +84,36 @@ async def publish_web_direct(
 
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        logger.info(f"💾 [Web-Direct] Video temporarily stored on VPS: {file_path}")
+        logger.info(f"💾 [1/3] VPS BUFFER SAVED: {file_path}")
 
-        # Step 2: ORACLE CLOUD SYNC
-        # This is what was missing in the previous execution!
-        logger.info(f"☁️ [Web-Direct] Syncing '{file.filename}' to Oracle Bucket...")
-        upload_success = upload_video(file_path, file.filename)
+        # Step 2: ORACLE SYNC (The Critical Part)
+        logger.info(f"☁️ [2/3] STARTING OCI SYNC FOR {file.filename}...")
+        success = upload_video(file_path, file.filename)
 
-        if not upload_success:
-            logger.error(f"❌ [Web-Direct] Oracle upload failed for '{file.filename}'")
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Cloud Sync Error: Video could not be sent to Oracle."
-            )
+        if not success:
+            logger.error("❌ [2/3] OCI SYNC FAILED. DB INSERT CANCELLED.")
+            raise HTTPException(status_code=502, detail="Oracle Sync Failed")
 
-        # Step 3: Database Trigger
-        logger.info(f"🗄️ [Web-Direct] Recording entry in scheduled_posts for Manager detection.")
+        # Step 3: Database Registration
+        logger.info("🗄️ [3/3] RECORDING TO POSTGRES...")
         insert_query = text("""
             INSERT INTO scheduled_posts (
                 client_id, video_file_id, title, description, platforms, scheduled_time, status
             )
-            VALUES (
-                1, :video_file_id, :title, :description, '["Tiktok"]'::jsonb, NOW(), 'pending'
-            )
+            VALUES (1, :video_file_id, :title, :description, '["Tiktok"]'::jsonb, NOW(), 'pending')
         """)
 
         db.execute(insert_query, {
             "video_file_id": file.filename,
-            "title": "Audit Web Publication",
+            "title": "Audit Web Post",
             "description": caption
         })
         db.commit()
 
-        logger.info(f"🚀 [Web-Direct] All systems go. Post {file.filename} is now live in Oracle and queued in DB.")
-        return {"status": "success", "message": "Video uploaded to Oracle and scheduled successfully."}
+        logger.info(f"🚀 [FINISH] ALL STEPS DONE FOR {file.filename}")
+        return {"status": "success", "message": "Video uploaded and scheduled."}
 
-    except HTTPException as http_err:
-        raise http_err
     except Exception as e:
         if 'db' in locals(): db.rollback()
-        logger.error(f"🔥 [Web-Direct] Critical Failure: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        logger.error(f"🔥 FATAL ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
