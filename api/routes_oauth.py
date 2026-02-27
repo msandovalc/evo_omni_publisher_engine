@@ -135,13 +135,12 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code missing")
 
-    # Extract client_id from state
-    client_id = 1
-    if state and state.startswith("client_id_"):
-        try:
-            client_id = int(state.split("_")[2])
-        except Exception:
-            logger.warning("Could not parse client_id, defaulting to 1")
+
+    # ADJUSTMENT 1: Safe parsing for state "client_id_1" (changed from [2] to [-1])
+    try:
+        client_id = int(state.split("_")[-1])
+    except Exception:
+        client_id = 1
 
     token_data = {}
 
@@ -294,7 +293,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
     # Final response (Keep your nice success card or redirect)
     if platform == "tiktok":
         return RedirectResponse(url="/dashboard.html")
-    
+
     return HTMLResponse(content=f"""
         <html>
             <head>
