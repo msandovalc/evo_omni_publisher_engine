@@ -2,31 +2,42 @@
 import logging
 import shutil
 import os
+import oci
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
-from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+from dotenv import load_dotenv
 
 from database.session import get_db
 from database.models import ScheduledPost, Client
 
+from storage.oracle_s3 import upload_video
+
+# Load environment variables
+load_dotenv()
+
 logger = logging.getLogger("Publish-API")
 
-# --- 1. PYDANTIC SCHEMAS (Data Validation) ---
+# Oracle Cloud Configuration from .env
+OCI_NAMESPACE = os.getenv("ORACLE_NAMESPACE")
+OCI_BUCKET_NAME = os.getenv("ORACLE_BUCKET_NAME")
+
+
+# --- 1. PYDANTIC SCHEMAS ---
+
 class PostCreate(BaseModel):
-    """Payload expected from the client to schedule a new video."""
     client_id: int = Field(..., description="ID of the client scheduling the post")
     video_file_id: str = Field(..., description="Path or Object Storage ID of the video")
     title: str = Field(..., max_length=150, description="Title of the social media post")
     description: Optional[str] = Field(default="", description="Caption or description")
-    platforms: List[str] = Field(..., description="List of target platforms, e.g., ['youtube', 'tiktok']")
+    platforms: List[str] = Field(..., description="List of target platforms")
     scheduled_time: datetime = Field(..., description="UTC time to publish the video")
 
+
 class PostResponse(BaseModel):
-    """Response returned after successfully scheduling a post."""
     id: int
     client_id: int
     title: str
@@ -38,27 +49,62 @@ class PostResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# --- 2. FASTAPI ROUTER & ENDPOINTS ---
+
+# --- 2. HELPER METHODS (Robust OCI Integration) ---
+
+def upload_video_to_oracle(file_path: str, filename: str) -> bool:
+    """
+    Core method to upload files to Oracle Object Storage.
+    Includes comprehensive logging and exception handling for OCI operations.
+    """
+    if not OCI_NAMESPACE or not OCI_BUCKET_NAME:
+        logger.error("[OCI Storage] ❌ Oracle Namespace or Bucket Name missing in environment variables.")
+        return False
+
+    try:
+        logger.info(f"[OCI Storage] ⬆️ Uploading '{filename}' to bucket '{OCI_BUCKET_NAME}'...")
+
+        # Load OCI config from default location (~/.oci/config)
+        config = oci.config.from_file()
+        object_storage = oci.object_storage.ObjectStorageClient(config)
+
+        # Upload process
+        with open(file_path, "rb") as file_data:
+            object_storage.put_object(
+                namespace_name=OCI_NAMESPACE,
+                bucket_name=OCI_BUCKET_NAME,
+                object_name=filename,
+                put_object_body=file_data
+            )
+
+        logger.info(f"[OCI Storage] ✅ Successfully uploaded '{filename}' to Oracle.")
+        return True
+
+    except oci.exceptions.ServiceError as se:
+        logger.error(f"[OCI Storage] ❌ OCI Service Error: {se.message}")
+        return False
+    except Exception as e:
+        logger.error(f"[OCI Storage] ❌ Unexpected Error during OCI upload: {str(e)}")
+        return False
+
+
+# --- 3. ROUTER DEFINITION ---
+
 router = APIRouter(
     prefix="/api/v1/publish",
     tags=["Publishing Operations"]
 )
 
+
+# --- 4. ENDPOINTS ---
+
 @router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 def schedule_new_post(post_data: PostCreate, db: Session = Depends(get_db)):
-    """Endpoint to schedule a new video publication."""
-    logger.info(f"Received request to schedule post: '{post_data.title}' for client {post_data.client_id}")
-
-    # Verify if the client exists in the database
+    """Schedules a new post (Original API Logic)."""
     client = db.query(Client).filter(Client.id == post_data.client_id).first()
     if not client:
-        logger.warning(f"Client ID {post_data.client_id} not found.")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Client with ID {post_data.client_id} not found in the database."
-        )
+        raise HTTPException(status_code=404, detail="Client not found")
 
-    # Create the new database record
     new_post = ScheduledPost(
         client_id=post_data.client_id,
         video_file_id=post_data.video_file_id,
@@ -68,43 +114,54 @@ def schedule_new_post(post_data: PostCreate, db: Session = Depends(get_db)):
         scheduled_time=post_data.scheduled_time,
         status="pending"
     )
-
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
-
-    logger.info(f"Post {new_post.id} scheduled successfully for {new_post.scheduled_time}")
     return new_post
+
 
 @router.get("/pending", response_model=List[PostResponse])
 def get_pending_posts(db: Session = Depends(get_db)):
-    """Retrieves all currently pending posts in the queue."""
-    logger.info("Fetching all pending posts from the database.")
-    pending_posts = db.query(ScheduledPost).filter(ScheduledPost.status == "pending").all()
-    return pending_posts
+    """Retrieves all pending scheduled posts."""
+    return db.query(ScheduledPost).filter(ScheduledPost.status == "pending").all()
+
 
 @router.post("/web-direct")
 async def publish_web_direct(
-    file: UploadFile = File(...),
-    privacy: str = Form(...),
-    caption: str = Form(""),
-    db: Session = Depends(get_db)
+        file: UploadFile = File(...),
+        privacy: str = Form(...),
+        caption: str = Form(""),
+        db: Session = Depends(get_db)
 ):
     """
-    MVP Endpoint for audit: Receives the file from the UI, saves it locally,
-    and executes the exact INSERT into the scheduled_posts table to trigger the DB Listener.
+    MVP Endpoint for audit:
+    1. Saves file to VPS (temp_media).
+    2. Uploads file to Oracle Bucket using the existing storage service.
+    3. Triggers the DB Listener via SQL Insert.
     """
     try:
-        # 1. Ensure the temporary directory exists
+        # Step 1: Ensure the temporary directory exists and save locally
         temp_dir = "temp_media"
         os.makedirs(temp_dir, exist_ok=True)
-
-        # 2. Save the file physically so the Listener/Bucket can find it
         file_path = os.path.join(temp_dir, file.filename)
+
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # 3. Execute the exact INSERT query parameterized with web data
+        logger.info(f"File saved to VPS storage: {file_path}")
+
+        # Step 2: Use your existing storage/oracle_s3.py service to upload
+        # This function reads ORACLE_NAMESPACE and ORACLE_BUCKET_NAME from .env
+        upload_success = upload_video(file_path, file.filename)
+
+        if not upload_success:
+            logger.error(f"Failed to upload {file.filename} to Oracle Cloud Storage.")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Cloud Storage Error: Could not upload video to Oracle bucket."
+            )
+
+        # Step 3: Execute the exact INSERT query to trigger the DB Listener
         insert_query = text("""
             INSERT INTO scheduled_posts (
                 client_id, 
@@ -127,15 +184,18 @@ async def publish_web_direct(
         """)
 
         db.execute(insert_query, {
-            "video_file_id": file.filename,  # Exact name of the uploaded file
-            "title": "Web Publication",      # Generic title for the audit
-            "description": caption           # Text and hashtags provided by the user
+            "video_file_id": file.filename,
+            "title": "Web Publication",
+            "description": caption
         })
         db.commit()
 
-        return {"status": "success", "message": "Video successfully saved and scheduled in scheduled_posts."}
+        logger.info(f"Web publication for {file.filename} successfully queued.")
+        return {"status": "success", "message": "Video uploaded to Oracle and scheduled in database."}
 
+    except HTTPException as http_err:
+        raise http_err
     except Exception as e:
         db.rollback()
-        print(f"❌ Error in /web-direct: {str(e)}")
+        logger.error(f"Unexpected error in /web-direct: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
