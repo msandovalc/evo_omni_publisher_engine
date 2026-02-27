@@ -100,7 +100,9 @@ async def publish_web_direct(
             INSERT INTO scheduled_posts (
                 client_id, video_file_id, title, description, platforms, scheduled_time, status
             )
-            VALUES (1, :video_file_id, :title, :description, '["Tiktok"]'::jsonb, NOW(), 'pending')
+            VALUES (
+                1, :video_file_id, :title, :description, '["tiktok"]'::jsonb, NOW(), 'pending'
+            )
         """)
 
         db.execute(insert_query, {

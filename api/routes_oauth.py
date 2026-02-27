@@ -51,6 +51,9 @@ def login(platform: str, client_id: int, db: Session = Depends(get_db)):
     """
     Initializes the OAuth flow for the requested platform.
     """
+
+    platform = platform.lower()
+
     logger.info(f"🟢 Initializing {platform.upper()} login for client: {client_id}")
     state_payload = f"client_id_{client_id}"
 
