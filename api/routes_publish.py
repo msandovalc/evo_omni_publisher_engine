@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+from services.utils import get_smart_title
 
 from database.session import get_db
 from database.models import ScheduledPost, Client
+
 # --- CRUCIAL: Importing your fixed storage service ---
 from storage.oracle_s3 import upload_video
 
@@ -96,6 +98,11 @@ async def publish_web_direct(
 
         # Step 3: Database Registration
         logger.info("🗄️ [3/3] RECORDING TO POSTGRES...")
+
+        # Extract smart title using the helper
+        post_title = get_smart_title(caption)
+        logger.info(f"✨ Smart Title generated: '{post_title}'")
+
         insert_query = text("""
             INSERT INTO scheduled_posts (
                 client_id, video_file_id, title, description, platforms, scheduled_time, status
@@ -107,8 +114,8 @@ async def publish_web_direct(
 
         db.execute(insert_query, {
             "video_file_id": file.filename,
-            "title": "Audit Web Post",
-            "description": caption
+            "title": post_title,  # Short & Clean for the Dashboard
+            "description": caption  # Full raw text for TikTok/Instagram
         })
         db.commit()
 

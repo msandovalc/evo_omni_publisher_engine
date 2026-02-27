@@ -126,8 +126,29 @@
 
     <script>
         function logout() {
-            // Elimina rastros de la sesión (si los tuvieras en JS) y redirige
-            window.location.href = '/';
+            // 1. Confirm with the user before destroying the session
+            const confirmLogout = confirm("Are you sure you want to log out and end your session?");
+
+            if (confirmLogout) {
+                console.log("🚪 Logging out: Clearing session and redirecting...");
+
+                // 2. Clear client-side persistence
+                localStorage.clear();
+                sessionStorage.clear();
+
+                // 3. Clear cookies (Optional but recommended for robust logout)
+                document.cookie.split(";").forEach((c) => {
+                    document.cookie = c
+                        .replace(/^ +/, "")
+                        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+
+                // 4. Redirect to the main login/connection page
+                window.location.href = '/';
+            } else {
+                // User clicked 'Cancel', do nothing and stay on the dashboard
+                console.log("✅ Logout cancelled by user.");
+            }
         }
 
         function handleFileSelect(event) {
