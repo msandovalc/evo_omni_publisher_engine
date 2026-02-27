@@ -86,7 +86,7 @@ def login(platform: str, client_id: int, db: Session = Depends(get_db)):
 
         redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
         # Scopes: user.info.basic is needed for identity, video.publish for uploading
-        scopes = "user.info.basic,user.info.profile,user.info.stats,video.publish"
+        scopes = "user.info.basic,user.info.stats,video.publish"
 
         params = {
             "client_key": TIKTOK_CLIENT_ID,
@@ -246,7 +246,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
         except Exception as e:
             logger.error(f"⚠️ Could not fetch TikTok user info: {str(e)}")
             token_data["display_name"] = "TikTok User"
-            
+
     # --- INSTAGRAM EXCHANGE (Request based) ---
     elif platform == "instagram":
         # 1. Exchange short-lived code for access token
