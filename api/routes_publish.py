@@ -126,7 +126,7 @@ def get_pending_posts(db: Session = Depends(get_db)):
     return db.query(ScheduledPost).filter(ScheduledPost.status == "pending").all()
 
 
-# --- 4. WEB-DIRECT METHOD (Integración con Oracle) ---
+# --- 4. WEB-DIRECT METHOD ---
 @router.post("/web-direct")
 async def publish_web_direct(
         file: UploadFile = File(...),
