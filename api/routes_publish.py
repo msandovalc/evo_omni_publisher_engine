@@ -126,6 +126,7 @@ def get_pending_posts(db: Session = Depends(get_db)):
     return db.query(ScheduledPost).filter(ScheduledPost.status == "pending").all()
 
 
+# --- 4. WEB-DIRECT METHOD (Integración con Oracle) ---
 @router.post("/web-direct")
 async def publish_web_direct(
         file: UploadFile = File(...),
@@ -134,13 +135,13 @@ async def publish_web_direct(
         db: Session = Depends(get_db)
 ):
     """
-    MVP Endpoint for audit:
-    1. Saves file to VPS (temp_media).
-    2. Uploads file to Oracle Bucket using the existing storage service.
-    3. Triggers the DB Listener via SQL Insert.
+    Direct Dashboard Publication:
+    1. Saves video to VPS (temp_media).
+    2. Uploads video to Oracle Bucket via storage/oracle_s3.py.
+    3. Records entry in database to trigger the Listener.
     """
     try:
-        # Step 1: Ensure the temporary directory exists and save locally
+        # Step 1: Save to VPS local buffer
         temp_dir = "temp_media"
         os.makedirs(temp_dir, exist_ok=True)
         file_path = os.path.join(temp_dir, file.filename)
@@ -148,54 +149,43 @@ async def publish_web_direct(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        logger.info(f"File saved to VPS storage: {file_path}")
+        logger.info(f"[Web-Direct] 💾 Video buffered on VPS: {file_path}")
 
-        # Step 2: Use your existing storage/oracle_s3.py service to upload
-        # This function reads ORACLE_NAMESPACE and ORACLE_BUCKET_NAME from .env
-        upload_success = upload_video(file_path, file.filename)
+        # Step 2: SYNC WITH ORACLE (This was the missing piece!)
+        # Uses your existing upload_video function from oracle_s3.py
+        logger.info(f"[Web-Direct] ☁️ Uploading {file.filename} to Oracle Cloud Storage...")
+        success = upload_video(file_path, file.filename)
 
-        if not upload_success:
-            logger.error(f"Failed to upload {file.filename} to Oracle Cloud Storage.")
+        if not success:
+            logger.error(f"[Web-Direct] ❌ Failed to upload {file.filename} to Oracle.")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Cloud Storage Error: Could not upload video to Oracle bucket."
+                detail="Oracle Cloud storage synchronization failed."
             )
 
-        # Step 3: Execute the exact INSERT query to trigger the DB Listener
+        # Step 3: Insert into Database
         insert_query = text("""
             INSERT INTO scheduled_posts (
-                client_id, 
-                video_file_id, 
-                title, 
-                description, 
-                platforms, 
-                scheduled_time, 
-                status
+                client_id, video_file_id, title, description, platforms, scheduled_time, status
             )
             VALUES (
-                1, 
-                :video_file_id, 
-                :title, 
-                :description, 
-                '["Tiktok"]'::jsonb, 
-                NOW(), 
-                'pending'
+                1, :video_file_id, :title, :description, '["Tiktok"]'::jsonb, NOW(), 'pending'
             )
         """)
 
         db.execute(insert_query, {
             "video_file_id": file.filename,
-            "title": "Web Publication",
+            "title": "Web Dashboard Upload",
             "description": caption
         })
         db.commit()
 
-        logger.info(f"Web publication for {file.filename} successfully queued.")
-        return {"status": "success", "message": "Video uploaded to Oracle and scheduled in database."}
+        logger.info(f"[Web-Direct] ✅ Process complete. Post queued for {file.filename}")
+        return {"status": "success", "message": "Video synced to Oracle and scheduled."}
 
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
         db.rollback()
-        logger.error(f"Unexpected error in /web-direct: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"[Web-Direct] 🔥 Fatal Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during processing.")
