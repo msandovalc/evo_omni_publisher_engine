@@ -2,14 +2,17 @@
 import uvicorn
 import logging
 import os
+import shutil
 import threading
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile, Form, Depends, HTTPException
 from fastapi.responses import PlainTextResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from starlette.responses import FileResponse
-
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from database.session import get_db
 from database.session import engine, Base
 import database.models
 
@@ -272,6 +275,47 @@ async def serve_tiktok_dashboard():
 
     return FileResponse(file_path)
 
+
+@app.post("/api/v1/publish/web-direct", tags=["MVP Web Direct"])
+async def publish_web_direct(
+        file: UploadFile = File(...),
+        privacy: str = Form(...),
+        caption: str = Form(""),
+        db: Session = Depends(get_db)
+):
+    """
+    Endpoint MVP Forzado en main.py para asegurar compatibilidad de rutas.
+    """
+    try:
+        temp_dir = "temp_media"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        file_path = os.path.join(temp_dir, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        insert_query = text("""
+            INSERT INTO scheduled_posts (
+                client_id, video_file_id, title, description, platforms, scheduled_time, status
+            )
+            VALUES (
+                1, :video_file_id, :title, :description, '["Tiktok"]'::jsonb, NOW(), 'pending'
+            )
+        """)
+
+        db.execute(insert_query, {
+            "video_file_id": file.filename,
+            "title": "Publicación vía Web",
+            "description": caption
+        })
+        db.commit()
+
+        return {"status": "success", "message": "Video guardado y programado correctamente."}
+
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error en /web-direct: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 # Registering Routers
 app.include_router(publish_router)

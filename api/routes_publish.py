@@ -1,6 +1,10 @@
 # api/routes_publish.py
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+import shutil
+import os
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
+from fastapi.responses import RedirectResponse, HTMLResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -78,3 +82,60 @@ def get_pending_posts(db: Session = Depends(get_db)):
     logger.info("Fetching all pending posts from the database.")
     pending_posts = db.query(ScheduledPost).filter(ScheduledPost.status == "pending").all()
     return pending_posts
+
+@router.post("/web-direct")
+async def publish_web_direct(
+    file: UploadFile = File(...),
+    privacy: str = Form(...),
+    caption: str = Form(""),
+    db: Session = Depends(get_db)
+):
+    """
+    MVP Endpoint for audit: Receives the file from the UI, saves it locally,
+    and executes the exact INSERT into the scheduled_posts table to trigger the DB Listener.
+    """
+    try:
+        # 1. Ensure the temporary directory exists
+        temp_dir = "temp_media"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # 2. Save the file physically so the Listener/Bucket can find it
+        file_path = os.path.join(temp_dir, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # 3. Execute the exact INSERT query parameterized with web data
+        insert_query = text("""
+            INSERT INTO scheduled_posts (
+                client_id, 
+                video_file_id, 
+                title, 
+                description, 
+                platforms, 
+                scheduled_time, 
+                status
+            )
+            VALUES (
+                1, 
+                :video_file_id, 
+                :title, 
+                :description, 
+                '["Tiktok"]'::jsonb, 
+                NOW(), 
+                'pending'
+            )
+        """)
+
+        db.execute(insert_query, {
+            "video_file_id": file.filename,  # Exact name of the uploaded file
+            "title": "Web Publication",      # Generic title for the audit
+            "description": caption           # Text and hashtags provided by the user
+        })
+        db.commit()
+
+        return {"status": "success", "message": "Video successfully saved and scheduled in scheduled_posts."}
+
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in /web-direct: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
