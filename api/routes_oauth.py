@@ -164,31 +164,27 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
 
     # --- TIKTOK TOKEN EXCHANGE (Request based) ---
     elif platform == "tiktok":
+        redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
 
-        logger.info("Redirecting TikTok callback to the MVP Dashboard.")
-        return RedirectResponse(url="/dashboard.html")
+        # We must perform a POST request to exchange the code for the access_token
+        logger.info(f"Exchanging code for TikTok access_token for client {client_id}")
+        response = requests.post(
+            "https://open.tiktokapis.com/v2/oauth/token/",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "client_key": TIKTOK_CLIENT_ID,
+                "client_secret": TIKTOK_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+            }
+        )
 
-        # redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
-        #
-        # # We must perform a POST request to exchange the code for the access_token
-        # logger.info(f"Exchanging code for TikTok access_token for client {client_id}")
-        # response = requests.post(
-        #     "https://open.tiktokapis.com/v2/oauth/token/",
-        #     headers={"Content-Type": "application/x-www-form-urlencoded"},
-        #     data={
-        #         "client_key": TIKTOK_CLIENT_ID,
-        #         "client_secret": TIKTOK_CLIENT_SECRET,
-        #         "code": code,
-        #         "grant_type": "authorization_code",
-        #         "redirect_uri": redirect_uri,
-        #     }
-        # )
-        #
-        # token_data = response.json()
-        #
-        # if response.status_code != 200 or "access_token" not in token_data:
-        #     logger.error(f"❌ TikTok Token Exchange failed: {token_data}")
-        #     raise HTTPException(status_code=400, detail="Could not retrieve TikTok tokens")
+        token_data = response.json()
+
+        if response.status_code != 200 or "access_token" not in token_data:
+            logger.error(f"❌ TikTok Token Exchange failed: {token_data}")
+            raise HTTPException(status_code=400, detail="Could not retrieve TikTok tokens")
 
     # --- INSTAGRAM EXCHANGE (Request based) ---
     elif platform == "instagram":
@@ -295,6 +291,10 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
         "label": platform.capitalize()
     })
 
+    # Final response (Keep your nice success card or redirect)
+    if platform == "tiktok":
+        return RedirectResponse(url="/dashboard.html")
+    
     return HTMLResponse(content=f"""
         <html>
             <head>
