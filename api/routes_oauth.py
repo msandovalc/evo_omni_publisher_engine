@@ -117,6 +117,37 @@ def login(platform: str, client_id: int, db: Session = Depends(get_db)):
 
     raise HTTPException(status_code=400, detail=f"Platform {platform} is not supported.")
 
+
+@router.get("/user/profile/{client_id}")
+def get_user_profile(client_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieves linked accounts information for the dashboard UI.
+    """
+    creds = db.query(SocialCredential).filter_by(client_id=client_id).all()
+
+    profiles = {}
+    for c in creds:
+        # Extract display name from stored token_data
+        # TikTok stores it in 'user_info', Instagram in 'page_name', etc.
+        user_display = "Connected"
+
+        if c.platform == "tiktok":
+            user_display = c.token_data.get("user_info", {}).get("display_name") or c.token_data.get(
+                "username") or "TikTok User"
+        elif c.platform == "instagram":
+            user_display = c.token_data.get("page_name") or "IG Business"
+        elif c.platform == "youtube":
+            user_display = "YouTube Channel"
+
+        profiles[c.platform.lower()] = {
+            "connected": True,
+            "username": user_display,
+            "updated_at": c.updated_at.strftime("%Y-%m-%d")
+        }
+
+    return {"profiles": profiles}
+
+
 @router.get("/callback/{platform}")
 def callback(platform: str, request: Request, db: Session = Depends(get_db)):
     """
@@ -184,6 +215,20 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
         if response.status_code != 200 or "access_token" not in token_data:
             logger.error(f"❌ TikTok Token Exchange failed: {token_data}")
             raise HTTPException(status_code=400, detail="Could not retrieve TikTok tokens")
+
+        # --- Fetch Real TikTok User Info ---
+        try:
+            user_info_res = requests.get(
+                "https://open.tiktokapis.com/v2/user/info/?fields=display_name,avatar_url,username",
+                headers={"Authorization": f"Bearer {token_data['access_token']}"}
+            )
+            user_info = user_info_res.json()
+            if "data" in user_info:
+                token_data["user_info"] = user_info["data"]
+                token_data["username"] = user_info["data"].get("display_name")
+                logger.info(f"👤 TikTok User identified: {token_data['username']}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not fetch TikTok user info: {str(e)}")
 
     # --- INSTAGRAM EXCHANGE (Request based) ---
     elif platform == "instagram":

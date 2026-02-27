@@ -50,14 +50,24 @@
         .publish-btn:hover { opacity: 0.9; }
         .publish-btn:disabled { background: #555; cursor: not-allowed; color: #888; }
         #success-msg { display: none; color: var(--success-color); text-align: center; margin-top: 15px; font-weight: bold; }
+
+        /* Connections View Styles */
+        .connections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; display: none; }
+        .connection-card { background: #2a2a2a; border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; position: relative; }
+        .connection-card.active { border-color: var(--success-color); }
+        .connection-card h3 { margin: 0 0 10px 0; font-size: 1.1rem; text-transform: capitalize; }
+        .connection-card .user-tag { color: var(--tiktok-color); font-weight: bold; font-size: 0.9rem; }
+        .connection-card .sync-date { font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; }
+        .status-dot { width: 8px; height: 8px; background: var(--success-color); border-radius: 50%; display: inline-block; margin-right: 5px; }
+
     </style>
 </head>
 <body>
 
     <div class="sidebar">
         <h2>🚀 Evo Omni Publisher</h2>
-        <div class="nav-item" onclick="window.location.href='/'">🔌 Connections</div>
-        <div class="nav-item active">✨ Create Post</div>
+        <div class="nav-item" onclick="switchView('connections')">🔌 Connections</div>
+        <div class="nav-item active" onclick="switchView('create')">✨ Create Post</div>
         <div class="nav-item nav-logout" onclick="logout()">🚪 Log Out</div>
 
         <div class="sidebar-footer">
@@ -72,55 +82,60 @@
     <div class="main-content">
         <div class="header">
             <h1>New TikTok Post</h1>
-            <div class="connected-account">🟢 Connected as: <b>@evo_omni_test</b></div>
+            <div class="connected-account">🟢 Connected as: <b id="display-username">@loading...</b></div>
         </div>
 
-        <div class="composer-box">
+        <div id="composer-view">
+            <div class="composer-box">
 
-            <div class="fake-upload" onclick="document.getElementById('file-input').click()">
-                <p id="upload-text">📁 Click to Browse and Select a Video</p>
-                <div id="file-details" class="file-info"></div>
-            </div>
-            <input type="file" id="file-input" accept="video/mp4,video/x-m4v,video/*" onchange="handleFileSelect(event)">
-
-            <div class="form-group">
-                <label>Caption / Description</label>
-                <textarea id="post-caption" rows="4" placeholder="Write your caption here... #hashtags"></textarea>
-            </div>
-
-            <div class="form-group">
-                <label>Schedule Date & Time *</label>
-                <input type="datetime-local" id="schedule-date" required>
-            </div>
-
-            <div class="form-group">
-                <label>Privacy Level *</label>
-                <select id="privacy-select" required>
-                    <option value="" disabled selected>Select Privacy Level</option>
-                    <option value="PUBLIC">Public</option>
-                    <option value="FRIENDS">Friends</option>
-                    <option value="SELF_ONLY">Private (Only Me)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Allow Interactions</label>
-                <div class="checkbox-group">
-                    <label class="checkbox-item"><input type="checkbox"> Comments</label>
-                    <label class="checkbox-item"><input type="checkbox"> Duet</label>
-                    <label class="checkbox-item"><input type="checkbox"> Stitch</label>
+                <div class="fake-upload" onclick="document.getElementById('file-input').click()">
+                    <p id="upload-text">📁 Click to Browse and Select a Video</p>
+                    <div id="file-details" class="file-info"></div>
                 </div>
+                <input type="file" id="file-input" accept="video/mp4,video/x-m4v,video/*" onchange="handleFileSelect(event)">
+
+                <div class="form-group">
+                    <label>Caption / Description</label>
+                    <textarea id="post-caption" rows="4" placeholder="Write your caption here... #hashtags"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Schedule Date & Time *</label>
+                    <input type="datetime-local" id="schedule-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Privacy Level *</label>
+                    <select id="privacy-select" required>
+                        <option value="" disabled selected>Select Privacy Level</option>
+                        <option value="PUBLIC">Public</option>
+                        <option value="FRIENDS">Friends</option>
+                        <option value="SELF_ONLY">Private (Only Me)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Allow Interactions</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item"><input type="checkbox"> Comments</label>
+                        <label class="checkbox-item"><input type="checkbox"> Duet</label>
+                        <label class="checkbox-item"><input type="checkbox"> Stitch</label>
+                    </div>
+                </div>
+
+                <div class="toggle-group">
+                    <span>Commercial Content Disclosure</span>
+                    <input type="checkbox" id="commercial-toggle">
+                </div>
+
+                <p class="legal-text">By posting, you agree to TikTok's Music Usage Confirmation</p>
+
+                <button class="publish-btn" id="publish-btn" onclick="submitRealPost()">Schedule on TikTok</button>
+                <div id="success-msg">✅ Success! Video scheduled and queued for publishing.</div>
             </div>
+        </div>
 
-            <div class="toggle-group">
-                <span>Commercial Content Disclosure</span>
-                <input type="checkbox" id="commercial-toggle">
-            </div>
-
-            <p class="legal-text">By posting, you agree to TikTok's Music Usage Confirmation</p>
-
-            <button class="publish-btn" id="publish-btn" onclick="submitRealPost()">Schedule on TikTok</button>
-            <div id="success-msg">✅ Success! Video scheduled and queued for publishing.</div>
+        <div id="connections-view" class="connections-grid">
         </div>
     </div>
 
@@ -162,12 +177,6 @@
             }
         }
 
-        window.onload = function() {
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            document.getElementById('schedule-date').value = now.toISOString().slice(0,16);
-        };
-
         async function submitRealPost() {
             const fileInput = document.getElementById('file-input');
             const privacy = document.getElementById('privacy-select').value;
@@ -203,7 +212,6 @@
                     body: formData
                 });
 
-                // Nueva validación para evitar el error feo de "Unexpected token <"
                 const contentType = response.headers.get("content-type");
                 if (response.ok) {
                     btn.style.display = 'none';
@@ -225,6 +233,135 @@
                 btn.disabled = false;
             }
         }
+
+        // Function to load dynamic profile data
+        async function fetchAccountData() {
+            try {
+                // We assume client_id 1 for now, as in your routes
+                const response = await fetch('/api/v1/oauth/user/profile/1');
+                const data = await response.json();
+                const profiles = data.profiles || {};
+
+                // 1. Update the Header (Connected as: @name)
+                const userDisplay = document.querySelector('.connected-account b');
+                if (profiles.tiktok && profiles.tiktok.connected) {
+                    userDisplay.innerText = `@${profiles.tiktok.username}`;
+                } else {
+                    userDisplay.innerText = "No account linked";
+                    document.querySelector('.connected-account').style.borderColor = "var(--danger-color)";
+                }
+
+                // 2. Update the "Connections" sidebar item (Optional enhancement)
+                const connectionsNav = document.querySelector('.nav-item:nth-child(2)');
+                if (profiles.tiktok) {
+                    connectionsNav.innerHTML = `🔌 Connections <span style="font-size:0.7rem; color:var(--success-color)">(1 Active)</span>`;
+                }
+            } catch (err) {
+                console.error("Failed to load profile data:", err);
+            }
+        }
+
+        // Function to update UI with real account data
+        async function updateUIWithProfile() {
+            try {
+                // We call the endpoint for client 1 (as established in your routes)
+                const response = await fetch('/api/v1/oauth/user/profile/1');
+                const data = await response.json();
+                const profiles = data.profiles || {};
+
+                // 1. UPDATE HEADER USERNAME
+                const usernameB = document.getElementById('display-username');
+                if (profiles.tiktok && profiles.tiktok.connected) {
+                    usernameB.innerText = `@${profiles.tiktok.username}`;
+                } else {
+                    usernameB.innerText = "No account linked";
+                    usernameB.parentElement.style.borderColor = "var(--danger-color)";
+                }
+
+                // 2. UPDATE "CONNECTIONS" SIDEBAR ITEM
+                const connectionsItem = document.querySelector('.nav-item:nth-child(2)');
+                const activeCount = Object.keys(profiles).length;
+                if (activeCount > 0) {
+                    connectionsItem.innerHTML = `🔌 Connections <span style="font-size:0.75rem; color:var(--success-color)">(${activeCount} Active)</span>`;
+                }
+
+            } catch (err) {
+                console.error("❌ Error fetching profile:", err);
+            }
+        }
+
+        // Function to switch between views
+        function switchView(view) {
+            const composerView = document.getElementById('composer-view');
+            const connectionsView = document.getElementById('connections-view');
+            const title = document.getElementById('view-title');
+
+            // Toggle active state in sidebar
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+
+            if (view === 'create') {
+                composerView.style.display = 'block';
+                connectionsView.style.display = 'none';
+                title.innerText = "New TikTok Post";
+                event.currentTarget.classList.add('active');
+            } else {
+                composerView.style.display = 'none';
+                connectionsView.style.display = 'grid';
+                title.innerText = "Managed Connections";
+                event.currentTarget.classList.add('active');
+                loadConnectionsList(); // Load data only when needed
+            }
+        }
+
+        // Function to fetch and render connections
+        async function loadConnectionsList() {
+            const container = document.getElementById('connections-view');
+            container.innerHTML = "<p>🔄 Fetching accounts...</p>";
+
+            try {
+                const response = await fetch('/api/v1/oauth/user/profile/1');
+                const data = await response.json();
+                const profiles = data.profiles || {};
+
+                container.innerHTML = ""; // Clear loader
+
+                const platforms = ['tiktok', 'instagram', 'youtube'];
+                platforms.forEach(p => {
+                    const info = profiles[p];
+                    const card = document.createElement('div');
+                    card.className = `connection-card ${info ? 'active' : ''}`;
+
+                    card.innerHTML = `
+                        <h3>${p}</h3>
+                        ${info
+                            ? `<div class="user-tag">@${info.username}</div>
+                               <div class="sync-date"><span class="status-dot"></span> Linked on: ${info.last_sync}</div>`
+                            : `<div style="color:#666">Not connected</div>
+                               <button onclick="window.location.href='/api/v1/oauth/login/${p}/1'" style="margin-top:10px; font-size:0.7rem;">Link Now</button>`
+                        }
+                    `;
+                    container.appendChild(card);
+                });
+
+                // Also update the header username while we are at it
+                if (profiles.tiktok) {
+                    document.getElementById('display-username').innerText = `@${profiles.tiktok.username}`;
+                }
+            } catch (err) {
+                container.innerHTML = "<p style='color:var(--danger-color)'>❌ Failed to load connections.</p>";
+            }
+        }
+
+        // Update window.onload to include profile fetching
+        window.onload = function() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('schedule-date').value = now.toISOString().slice(0,16);
+
+            // FETCH DYNAMIC DATA
+            fetchAccountData();
+            updateUIWithProfile();
+        };
     </script>
 </body>
 </html>
