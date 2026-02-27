@@ -66,8 +66,8 @@
 
     <div class="sidebar">
         <h2>🚀 Evo Omni Publisher</h2>
-        <div class="nav-item" onclick="switchView('connections')">🔌 Connections</div>
-        <div class="nav-item active" onclick="switchView('create')">✨ Create Post</div>
+        <div class="nav-item" onclick="switchView(event, 'connections')">🔌 Connections</div>
+        <div class="nav-item active" onclick="switchView(event, 'create')">✨ Create Post</div>
         <div class="nav-item nav-logout" onclick="logout()">🚪 Log Out</div>
 
         <div class="sidebar-footer">
@@ -291,25 +291,25 @@
         }
 
         // Function to switch between views
-        function switchView(view) {
+        function switchView(event, view) {
             const composerView = document.getElementById('composer-view');
             const connectionsView = document.getElementById('connections-view');
             const title = document.getElementById('view-title');
 
-            // Toggle active state in sidebar
+            // Quitar 'active' de todos
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            // Agregar 'active' al que clickeaste usando event.currentTarget
+            event.currentTarget.classList.add('active');
 
             if (view === 'create') {
                 composerView.style.display = 'block';
                 connectionsView.style.display = 'none';
                 title.innerText = "New TikTok Post";
-                event.currentTarget.classList.add('active');
             } else {
                 composerView.style.display = 'none';
                 connectionsView.style.display = 'grid';
                 title.innerText = "Managed Connections";
-                event.currentTarget.classList.add('active');
-                loadConnectionsList(); // Load data only when needed
+                loadConnectionsList(); // Esta función llenará el div de las tarjetas
             }
         }
 

@@ -132,8 +132,18 @@ def get_user_profile(client_id: int, db: Session = Depends(get_db)):
         user_display = "Connected"
 
         if c.platform == "tiktok":
-            user_display = c.token_data.get("user_info", {}).get("display_name") or c.token_data.get(
-                "username") or "TikTok User"
+            user_info = c.token_data.get("user_info", {})
+  
+            inner_user = user_info.get("user", {}) if isinstance(user_info.get("user"), dict) else user_info
+
+            user_display = (
+                    c.token_data.get("display_name") or
+                    inner_user.get("display_name") or
+                    inner_user.get("username") or
+                    c.token_data.get("username") or
+                    "TikTok User"
+            )
+
         elif c.platform == "instagram":
             user_display = c.token_data.get("page_name") or "IG Business"
         elif c.platform == "youtube":
@@ -218,21 +228,27 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
 
         # --- Fetch Real TikTok User Info ---
         try:
-            user_info_res = requests.get(
-                "https://open.tiktokapis.com/v2/user/info/?fields=display_name,avatar_url,username",
+            # TikTok V2 API call for user info
+            user_info_url = "https://open.tiktokapis.com/v2/user/info/?fields=display_name,username,avatar_url"
+            user_res = requests.get(
+                user_info_url,
                 headers={"Authorization": f"Bearer {token_data['access_token']}"}
-            )
-            user_info = user_info_res.json()
-            if "data" in user_info:
-                data = user_info["data"]
-                display_name = data.get("display_name") or data.get(
-                    "username") or f"User_{data.get('open_id', 'Unknown')[:5]}"
-                token_data["user_info"] = data
-                token_data["display_name"] = display_name
-                logger.info(f"👤 TikTok User identified: {display_name}")
+            ).json()
+
+            if "data" in user_res:
+                user = user_res["data"]["user"]
+
+                final_name = user.get("display_name") or user.get(
+                    "username") or f"User_{user.get('open_id', '???')[:5]}"
+
+                token_data["display_name"] = final_name
+                logger.info(f"👤 TikTok User identified: {final_name}")
+            else:
+                token_data["display_name"] = "TikTok Account"
 
         except Exception as e:
-            logger.warning(f"⚠️ Could not fetch TikTok user info: {str(e)}")
+            logger.error(f"⚠️ Could not fetch TikTok user info: {str(e)}")
+            token_data["display_name"] = "TikTok Account"
 
     # --- INSTAGRAM EXCHANGE (Request based) ---
     elif platform == "instagram":
