@@ -4,6 +4,7 @@ import logging
 import os
 import json
 import math
+import time
 from sqlalchemy.orm import Session
 from database.models import SocialCredential
 
@@ -45,10 +46,9 @@ def refresh_tiktok_token(client_id: int, db: Session, old_token_data: dict):
         return None
 
 
-def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client_id: int, db: Session):
+def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client_id: int, db: Session, privacy_level: str = "SELF_ONLY"):
     """
-    Publishes a video to TikTok using dynamic chunking.
-    Handles files of any size by splitting them into manageable parts.
+    Publishes a video to TikTok using dynamic chunking and resilient retry logic.
     """
     access_token = token_data.get("access_token")
     if not access_token:
@@ -57,8 +57,6 @@ def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client
 
     try:
         file_size = os.path.getsize(video_path)
-
-        # Define chunk size (20 MB is a safe and standard limit for TikTok API)
         CHUNK_SIZE = 20 * 1024 * 1024
         total_chunk_count = math.ceil(file_size / CHUNK_SIZE)
 
@@ -74,7 +72,7 @@ def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client
         payload = {
             "post_info": {
                 "title": title,
-                "privacy_level": "SELF_ONLY",
+                "privacy_level": privacy_level,
                 "disable_duet": False,
                 "disable_comment": False,
                 "disable_stitch": False
@@ -90,12 +88,11 @@ def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client
         res = requests.post(init_url, headers=headers, json=payload)
         res_json = res.json()
 
-        # Handle token expiration automatically
+        # Handle token expiration
         if "error" in res_json and res_json["error"].get("code") == "access_token_invalid":
             logger.warning("TikTok token expired. Attempting refresh...")
             new_tokens = refresh_tiktok_token(client_id, db, token_data)
             if new_tokens:
-                # Retry initialization with new token
                 headers["Authorization"] = f"Bearer {new_tokens['access_token']}"
                 res = requests.post(init_url, headers=headers, json=payload)
                 res_json = res.json()
@@ -109,34 +106,54 @@ def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client
         upload_url = res_json['data']['upload_url']
         publish_id = res_json['data']['publish_id']
 
-        # 2. Upload the binary file using dynamic chunking
+        # 2. Upload the binary file using dynamic chunking with RETRY LOGIC
         logger.info(f"[TikTok] Streaming binary data. Publish ID: {publish_id}")
+
+        MAX_RETRIES = 3  # ✨ Maximum attempts per chunk
 
         with open(video_path, 'rb') as f:
             for i in range(total_chunk_count):
-                # Calculate byte ranges for the current chunk
                 start = i * CHUNK_SIZE
                 end = min(start + CHUNK_SIZE - 1, file_size - 1)
-
                 chunk_data = f.read(CHUNK_SIZE)
-                content_length = len(chunk_data)
 
                 upload_headers = {
                     "Content-Type": "video/mp4",
-                    "Content-Length": str(content_length),
+                    "Content-Length": str(len(chunk_data)),
                     "Content-Range": f"bytes {start}-{end}/{file_size}"
                 }
 
-                # PUT request with the specific chunk
-                put_response = requests.put(upload_url, data=chunk_data, headers=upload_headers)
+                # ✨ START RETRY LOOP FOR CURRENT CHUNK
+                chunk_success = False
+                for attempt in range(1, MAX_RETRIES + 1):
+                    try:
+                        # Added timeout to prevent the worker from hanging indefinitely
+                        put_response = requests.put(upload_url, data=chunk_data, headers=upload_headers, timeout=60)
 
-                # TikTok usually returns 201 Created or 206 Partial Content
-                if put_response.status_code not in [200, 201, 206]:
+                        if put_response.status_code in [200, 201, 206]:
+                            logger.info(f"[TikTok] Chunk {i + 1}/{total_chunk_count} uploaded successfully.")
+                            chunk_success = True
+                            break
+
+                        elif put_response.status_code >= 500:
+                            # 500+ errors (like 504 Gateway Timeout) are candidates for retry
+                            logger.warning(
+                                f"[TikTok] Server error {put_response.status_code} on chunk {i + 1}. Attempt {attempt}/{MAX_RETRIES}...")
+                            time.sleep(5 * attempt)  # Exponential backoff
+                        else:
+                            # 400 errors are client-side; retrying won't help
+                            logger.error(f"[TikTok] Fatal upload error {put_response.status_code}: {put_response.text}")
+                            break
+
+                    except requests.exceptions.RequestException as req_err:
+                        logger.warning(
+                            f"[TikTok] Network error on chunk {i + 1}: {req_err}. Attempt {attempt}/{MAX_RETRIES}...")
+                        time.sleep(5 * attempt)
+
+                if not chunk_success:
                     logger.error(
-                        f"[TikTok] Chunk {i + 1}/{total_chunk_count} upload failed with status {put_response.status_code}: {put_response.text}")
+                        f"[TikTok] Failed to upload chunk {i + 1} after {MAX_RETRIES} attempts. Aborting post.")
                     return False
-
-                logger.info(f"[TikTok] Chunk {i + 1}/{total_chunk_count} uploaded successfully.")
 
         logger.info(f"✅ SUCCESS! TikTok Video successfully submitted for processing. ID: {publish_id}")
         return True
