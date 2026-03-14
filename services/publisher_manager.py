@@ -28,7 +28,9 @@ def process_single_post(post_id: int):
     try:
         # 1. Retrieve the post from the database
         post = db.query(ScheduledPost).filter(ScheduledPost.id == post_id).first()
-        if not post or post.status != 'pending':
+        # Accept BOTH 'pending' (from the Listener) and 'processing' (from the Scheduler)
+        if not post or post.status not in ['pending', 'processing']:
+            logger.warning(f"[Manager] Post {post_id} aborted. Invalid status: {post.status if post else 'Not Found'}")
             return
 
         logger.info(f"[Manager] Starting orchestration for Post {post_id} (Client {post.client_id})")
