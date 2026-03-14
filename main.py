@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
     # 4. Start the background scheduler (optional backup)
     # Note: We keep this started for timed future tasks, but the
     # immediate reactions are now handled by the Listener.
-    # start_scheduler()
+    start_scheduler()
 
     yield
 
