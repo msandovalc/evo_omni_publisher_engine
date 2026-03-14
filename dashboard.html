@@ -182,23 +182,16 @@
             const privacy = document.getElementById('privacy-select').value;
             const caption = document.getElementById('post-caption').value;
 
-            // 1. Get the raw local value (e.g., "2026-03-13T21:43")
+            // 1. Get the raw local time from the input field
             const rawTime = document.getElementById('schedule-date').value;
 
-            // 2. JS automatically assumes this string belongs to your local timezone (CST)
-            const localDate = new Date(rawTime);
-
-            // 3. Convert it to an explicit ISO UTC format (ends with 'Z')
-            const scheduledTimeUTC = localDate.toISOString();
-
+            // 2. Validate everything BEFORE doing any time conversions
             if (!fileInput.files[0]) { alert("Please select a video file."); return; }
             if (!privacy) { alert("Please select a Privacy Level."); return; }
-            if (!scheduledTime) { alert("Please select a schedule date & time."); return; }
+            if (!rawTime) { alert("Please select a schedule date & time."); return; } // ✨ Validating rawTime
 
             const proceed = confirm(
-                "⚠️ DEMONSTRATION MODE ACTIVE\n\n" +
-                "For audit and demonstration purposes, this post will be executed IMMEDIATELY, overriding your selected schedule time.\n\n" +
-                "Do you want to proceed with the immediate publication?"
+                "Are you sure you want to schedule this post?"
             );
 
             if (!proceed) return;
@@ -209,10 +202,15 @@
             btn.innerText = "Uploading to Server...";
             btn.disabled = true;
 
+            // 3. Convert the validated local time to UTC for the backend
+            const localDate = new Date(rawTime);
+            const scheduledTimeUTC = localDate.toISOString(); // Generates standard UTC format
+
             const formData = new FormData();
             formData.append("file", fileInput.files[0]);
             formData.append("privacy", privacy);
             formData.append("caption", caption);
+            // ✨ 4. Send the UTC time to the server
             formData.append("scheduled_time", scheduledTimeUTC);
 
             try {
@@ -225,14 +223,14 @@
                 if (response.ok) {
                     btn.style.display = 'none';
                     msg.style.display = 'block';
-                    msg.innerText = "✅ Success! Video published to TikTok.";
+                    msg.innerText = "✅ Success! Video scheduled on the server.";
                 } else if (contentType && contentType.includes("application/json")) {
                     const error = await response.json();
                     alert("Error publishing: " + (error.detail || "Unknown error"));
                     btn.innerText = "Try Again";
                     btn.disabled = false;
                 } else {
-                    alert(`Server Error ${response.status}: Ensure Nginx allows large file uploads and the endpoint exists.`);
+                    alert(`Server Error ${response.status}: Ensure Nginx allows large file uploads.`);
                     btn.innerText = "Try Again";
                     btn.disabled = false;
                 }
