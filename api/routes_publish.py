@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from services.utils import get_smart_title
 
 from database.session import get_db
@@ -71,6 +71,7 @@ async def publish_web_direct(
         file: UploadFile = File(...),
         privacy: str = Form(...),
         caption: str = Form(""),
+        scheduled_time: str = Form(...),
         db: Session = Depends(get_db)
 ):
     # HIGH VISIBILITY LOGS
@@ -79,6 +80,12 @@ async def publish_web_direct(
     logger.info("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
     try:
+
+        try:
+            parsed_scheduled_time = datetime.fromisoformat(scheduled_time)
+        except ValueError:
+            parsed_scheduled_time = datetime.now(timezone.utc)
+
         # Step 1: VPS Local Buffer
         temp_dir = "temp_media"
         os.makedirs(temp_dir, exist_ok=True)
@@ -108,7 +115,7 @@ async def publish_web_direct(
                 client_id, video_file_id, title, description, platforms, scheduled_time, status
             )
             VALUES (
-                1, :video_file_id, :title, :description, '["tiktok"]'::jsonb, NOW(), 'pending'
+                1, :video_file_id, :title, :description, '["tiktok"]'::jsonb, :scheduled_time, 'pending'
             )
         """)
 
