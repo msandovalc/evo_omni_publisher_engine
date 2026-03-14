@@ -122,7 +122,8 @@ async def publish_web_direct(
         db.execute(insert_query, {
             "video_file_id": file.filename,
             "title": post_title,  # Short & Clean for the Dashboard
-            "description": caption  # Full raw text for TikTok/Instagram
+            "description": caption,  # Full raw text for TikTok/Instagram
+            "scheduled_time": parsed_scheduled_time
         })
         db.commit()
 
