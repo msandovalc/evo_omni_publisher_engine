@@ -82,9 +82,18 @@ async def publish_web_direct(
     try:
 
         try:
-            parsed_scheduled_time = datetime.fromisoformat(scheduled_time)
+            # 1. Parse the ISO string sent by the frontend (e.g., '2026-03-14T03:43:00.000Z')
+            # We replace 'Z' with '+00:00' to ensure compatibility with Python's fromisoformat
+            parsed_aware_time = datetime.fromisoformat(scheduled_time.replace('Z', '+00:00'))
+
+            # 2. Ensure it's in UTC and strip the timezone info (make it naive) for Postgres
+            parsed_scheduled_time = parsed_aware_time.astimezone(timezone.utc).replace(tzinfo=None)
+            logger.info(f"🕒 Scheduled time normalized to UTC: {parsed_scheduled_time}")
+
         except ValueError:
-            parsed_scheduled_time = datetime.now(timezone.utc)
+            # Fallback to current UTC time if parsing fails
+            parsed_scheduled_time = datetime.now(timezone.utc).replace(tzinfo=None)
+            logger.warning("⚠️ Date parsing failed, falling back to current UTC time")
 
         # Step 1: VPS Local Buffer
         temp_dir = "temp_media"

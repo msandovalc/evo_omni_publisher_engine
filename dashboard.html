@@ -181,7 +181,15 @@
             const fileInput = document.getElementById('file-input');
             const privacy = document.getElementById('privacy-select').value;
             const caption = document.getElementById('post-caption').value;
-            const scheduledTime = document.getElementById('schedule-date').value;
+
+            // 1. Get the raw local value (e.g., "2026-03-13T21:43")
+            const rawTime = document.getElementById('schedule-date').value;
+
+            // 2. JS automatically assumes this string belongs to your local timezone (CST)
+            const localDate = new Date(rawTime);
+
+            // 3. Convert it to an explicit ISO UTC format (ends with 'Z')
+            const scheduledTimeUTC = localDate.toISOString();
 
             if (!fileInput.files[0]) { alert("Please select a video file."); return; }
             if (!privacy) { alert("Please select a Privacy Level."); return; }
@@ -205,7 +213,7 @@
             formData.append("file", fileInput.files[0]);
             formData.append("privacy", privacy);
             formData.append("caption", caption);
-            formData.append("scheduled_time", scheduledTime);
+            formData.append("scheduled_time", scheduledTimeUTC);
 
             try {
                 const response = await fetch('/api/v1/publish/web-direct', {
