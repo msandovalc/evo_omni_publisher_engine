@@ -1,393 +1,555 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evo Omni Publisher - Dashboard</title>
-    <style>
-        :root { --bg-color: #121212; --panel-bg: #1e1e1e; --border-color: #333; --text-main: #ffffff; --text-muted: #a0a0a0; --tiktok-color: #00f2fe; --success-color: #00e676; --danger-color: #ff4757; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; }
+  <meta name="description" content="Social Media Publisher Dashboard - Schedule and manage posts across platforms">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface:  { DEFAULT: '#0f111a', 50: '#161927', 100: '#1c2033', 200: '#242839' },
+            brand:    { DEFAULT: '#7c5cfc', light: '#9b82ff', dark: '#6344e0', glow: 'rgba(124,92,252,0.15)' },
+            mint:     { DEFAULT: '#2dd4a8', dark: '#1a9e7a' },
+            coral:    { DEFAULT: '#ff6b6b', dark: '#e05555' },
+            amber:    { DEFAULT: '#fbbf24' },
+            sky:      { DEFAULT: '#38bdf8' },
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #242839; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #363b50; }
 
-        /* Sidebar and Navigation */
-        .sidebar { width: 260px; background-color: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .sidebar h2 { font-size: 1.2rem; margin-bottom: 20px; color: var(--tiktok-color); line-height: 1.4; }
-        .nav-item { padding: 10px; border-radius: 5px; cursor: pointer; color: var(--text-muted); transition: 0.2s; }
-        .nav-item:hover { background-color: rgba(255, 255, 255, 0.05); }
-        .nav-item.active { background-color: #2a2a2a; color: var(--text-main); font-weight: bold; }
-        .nav-logout { color: var(--danger-color); margin-top: 10px; font-weight: bold; }
-        .nav-logout:hover { background-color: rgba(255, 71, 87, 0.1); }
+    .nav-item { position: relative; transition: all 0.2s; }
+    .nav-item.active { color: #9b82ff; background: rgba(124,92,252,0.08); }
+    .nav-item.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; background: #7c5cfc; border-radius: 0 3px 3px 0; }
 
-        /* Sidebar Footer (Legal Links) */
-        .sidebar-footer { margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 20px; font-size: 0.85rem; text-align: center; }
-        .sidebar-footer a { color: var(--text-muted); text-decoration: none; display: block; margin-bottom: 8px; transition: color 0.3s; }
-        .sidebar-footer a:hover { color: var(--tiktok-color); text-decoration: underline; }
-        .sidebar-footer .support-email { color: #38bdf8; word-break: break-all; margin-bottom: 15px; }
+    .chip { transition: all 0.15s; cursor: pointer; user-select: none; }
+    .chip.selected { background: rgba(124,92,252,0.15); border-color: #7c5cfc; color: #c4b5fd; }
+    .chip.selected .chip-check { background: #7c5cfc; border-color: #7c5cfc; }
+    .chip.selected .chip-check svg { opacity: 1; }
 
-        /* Main Workspace */
-        .main-content { flex: 1; padding: 40px; overflow-y: auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 30px; }
-        .connected-account { background: rgba(0, 242, 254, 0.1); border: 1px solid var(--tiktok-color); padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; }
-        .composer-box { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 30px; max-width: 600px; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-muted); }
+    .card-lift { transition: transform 0.2s, box-shadow 0.2s; }
+    .card-lift:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
 
-        /* Interactive File Upload */
-        .fake-upload { border: 2px dashed var(--border-color); padding: 30px; text-align: center; border-radius: 8px; color: var(--text-muted); cursor: pointer; margin-bottom: 20px; transition: 0.3s; }
-        .fake-upload:hover { border-color: var(--tiktok-color); background: rgba(0, 242, 254, 0.05); }
-        #file-input { display: none; }
-        .file-info { color: var(--tiktok-color); font-weight: bold; margin-top: 10px; display: none; }
+    .toast-enter { animation: toastIn 0.35s cubic-bezier(0.21,1.02,0.73,1); }
+    @keyframes toastIn { from { opacity:0; transform: translateX(30px); } to { opacity:1; transform: translateX(0); } }
+    .toast-exit { animation: toastOut 0.25s ease-in forwards; }
+    @keyframes toastOut { to { opacity:0; transform: translateX(30px); } }
 
-        /* Inputs, Selects and Toggles */
-        select, input[type="datetime-local"], textarea { width: 100%; padding: 10px; background-color: #2a2a2a; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 5px; margin-bottom: 10px; box-sizing: border-box; }
-        textarea { resize: vertical; }
-        .checkbox-group { display: flex; gap: 15px; margin-bottom: 20px; }
-        .checkbox-item { display: flex; align-items: center; gap: 5px; font-size: 0.9rem; }
-        .toggle-group { display: flex; justify-content: space-between; align-items: center; background: #2a2a2a; padding: 10px 15px; border-radius: 5px; margin-bottom: 20px; }
+    .drop-active { border-color: #7c5cfc !important; background: rgba(124,92,252,0.05) !important; }
 
-        /* Action Buttons */
-        .legal-text { font-size: 0.8rem; color: #888; text-align: center; margin-bottom: 15px; }
-        .publish-btn { width: 100%; padding: 15px; background: linear-gradient(45deg, #00f2fe, #4facfe); border: none; border-radius: 5px; color: #000; font-weight: bold; font-size: 1rem; cursor: pointer; transition: opacity 0.3s; }
-        .publish-btn:hover { opacity: 0.9; }
-        .publish-btn:disabled { background: #555; cursor: not-allowed; color: #888; }
-        #success-msg { display: none; color: var(--success-color); text-align: center; margin-top: 15px; font-weight: bold; }
+    .spinner { width:18px;height:18px;border:2.5px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;animation:spin .55s linear infinite;display:inline-block; }
+    @keyframes spin { to { transform:rotate(360deg); } }
 
-        /* Connections View Styles */
-        .connections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; display: none; }
-        .connection-card { background: #2a2a2a; border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; position: relative; }
-        .connection-card.active { border-color: var(--success-color); }
-        .connection-card h3 { margin: 0 0 10px 0; font-size: 1.1rem; text-transform: capitalize; }
-        .connection-card .user-tag { color: var(--tiktok-color); font-weight: bold; font-size: 0.9rem; }
-        .connection-card .sync-date { font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; }
-        .status-dot { width: 8px; height: 8px; background: var(--success-color); border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .badge { display:inline-flex;align-items:center;padding:2px 10px;border-radius:9999px;font-size:0.7rem;font-weight:600;letter-spacing:0.03em;text-transform:uppercase; }
+    .badge-pending { background:rgba(251,191,36,0.12);color:#fbbf24; }
+    .badge-completed { background:rgba(45,212,168,0.12);color:#2dd4a8; }
+    .badge-failed { background:rgba(255,107,107,0.12);color:#ff6b6b; }
+    .badge-processing { background:rgba(56,189,248,0.12);color:#38bdf8; }
 
-    </style>
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+  </style>
 </head>
-<body>
+<body class="bg-surface text-gray-300 min-h-screen flex overflow-hidden">
 
-    <div class="sidebar">
-        <h2>🚀 Evo Omni Publisher</h2>
-        <div class="nav-item" onclick="switchView(event, 'connections')">🔌 Connections</div>
-        <div class="nav-item active" onclick="switchView(event, 'create')">✨ Create Post</div>
-        <div class="nav-item nav-logout" onclick="logout()">🚪 Log Out</div>
+  <!-- Toast Container -->
+  <div id="toast-wrap" class="fixed top-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none"></div>
 
-        <div class="sidebar-footer">
-            <a href="/terms" target="_blank">Terms of Service</a>
-            <a href="/privacy" target="_blank">Privacy Policy</a>
-            <div style="margin: 15px 0 5px 0;">Support:</div>
-            <a href="mailto:dev.ia.automation@gmail.com" class="support-email">dev.ia.automation@gmail.com</a>
-            <p style="color: #666; margin-top: 10px;">© 2026 Evo Omni</p>
-        </div>
+  <!-- ═══ Sidebar ═══ -->
+  <aside class="w-[250px] h-screen flex flex-col bg-surface-50 border-r border-surface-200/60 shrink-0 sticky top-0">
+    <!-- Logo -->
+    <div class="px-5 py-5 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand to-brand-light flex items-center justify-center shadow-lg shadow-brand/20">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <div>
+        <span class="font-bold text-white text-[15px] tracking-tight">🚀 Evo Omni Publisher</span>
+        <span class="block text-[10px] text-gray-500 -mt-0.5 font-medium">Social Suite</span>
+      </div>
     </div>
 
-    <div class="main-content">
-        <div class="header">
-            <h1 id="view-title">Create New Post</h1>
-            <div class="connected-account">🟢 Connected as: <b id="display-username">@loading...</b></div>
+    <!-- Nav -->
+    <nav class="flex-1 px-3 py-2 space-y-0.5">
+      <button onclick="go('create')"  id="nav-create"      class="nav-item active w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 text-[13px] font-medium">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Create Post
+      </button>
+      <button onclick="go('connections')" id="nav-connections" class="nav-item w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-surface-200/30">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+        Connections
+      </button>
+      <button onclick="go('history')"    id="nav-history"     class="nav-item w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-surface-200/30">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        History &amp; Logs
+      </button>
+      <button onclick="go('settings')"   id="nav-settings"    class="nav-item w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-surface-200/30">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/><circle cx="12" cy="12" r="3"/></svg>
+        Settings
+      </button>
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="px-5 py-4 border-t border-surface-200/40 bg-surface-50/50">
+      <div class="flex flex-col gap-1">
+        <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Support</span>
+        <a href="mailto:dev.ia.automation@gmail.com" class="text-[11px] text-brand-light hover:text-white transition-colors truncate">
+          dev.ia.automation@gmail.com
+        </a>
+        <div class="mt-3 text-[10px] text-gray-600 font-medium flex items-center justify-between">
+          <span>© 2026 Evo Omni</span>
+          <span class="w-2 h-2 rounded-full bg-mint animate-pulse" title="System Online"></span>
         </div>
+      </div>
+    </div>
+  </aside>
 
-        <div id="composer-view">
-            <div class="composer-box">
+  <!-- ═══ Main ═══ -->
+  <div class="flex-1 flex flex-col h-screen overflow-hidden">
+    <!-- Top Bar -->
+    <header class="shrink-0 h-14 bg-surface-50/60 backdrop-blur-xl border-b border-surface-200/40 flex items-center px-8">
+      <h1 id="page-title" class="text-[15px] font-semibold text-white">Create Post</h1>
+      <div class="ml-auto flex items-center gap-3">
+        <span class="text-[11px] text-gray-500" id="clock"></span>
+      </div>
+    </header>
 
-                <div class="fake-upload" onclick="document.getElementById('file-input').click()">
-                    <p id="upload-text">📁 Click to Browse and Select a Video</p>
-                    <div id="file-details" class="file-info"></div>
+    <main class="flex-1 overflow-y-auto">
+
+      <!-- ════════ VIEW: Create Post ════════ -->
+      <section id="view-create" class="p-8 max-w-3xl mx-auto">
+        <form id="post-form" onsubmit="submitPost(event)" class="space-y-7">
+
+          <!-- Upload -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Video File</label>
+            <div id="drop-zone" class="border-2 border-dashed border-surface-200 rounded-2xl p-10 text-center cursor-pointer hover:border-brand/40 transition-all group">
+              <div class="flex flex-col items-center">
+                <div class="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mb-4 group-hover:bg-brand/10 transition-colors">
+                  <svg class="w-7 h-7 text-gray-500 group-hover:text-brand-light transition-colors" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
                 </div>
-                <input type="file" id="file-input" accept="video/mp4,video/x-m4v,video/*" onchange="handleFileSelect(event)">
-
-                <div class="form-group">
-                    <label>Caption / Description</label>
-                    <textarea id="post-caption" rows="4" placeholder="Write your caption here... #hashtags"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Schedule Date & Time *</label>
-                    <input type="datetime-local" id="schedule-date" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Privacy Level *</label>
-                    <select id="privacy-select" required>
-                        <option value="" disabled selected>Select Privacy Level</option>
-                        <option value="PUBLIC">Public</option>
-                        <option value="FRIENDS">Friends</option>
-                        <option value="SELF_ONLY">Private (Only Me)</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Allow Interactions</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-item"><input type="checkbox"> Comments</label>
-                        <label class="checkbox-item"><input type="checkbox"> Duet</label>
-                        <label class="checkbox-item"><input type="checkbox"> Stitch</label>
-                    </div>
-                </div>
-
-                <div class="toggle-group">
-                    <span>Commercial Content Disclosure</span>
-                    <input type="checkbox" id="commercial-toggle">
-                </div>
-
-                <p class="legal-text">By posting, you agree to TikTok's Music Usage Confirmation</p>
-
-                <button class="publish-btn" id="publish-btn" onclick="submitRealPost()">Schedule on TikTok</button>
-                <div id="success-msg">✅ Success! Video scheduled and queued for publishing.</div>
+                <p class="text-sm text-gray-400 font-medium" id="file-label">Drop your <span class="text-brand-light">.mp4</span> file here or <span class="text-brand-light underline underline-offset-2">browse</span></p>
+                <p class="text-[11px] text-gray-600 mt-1">Max 500 MB • MP4 format</p>
+              </div>
+              <input type="file" id="file-input" accept="video/mp4" class="hidden" onchange="onFile(this)">
             </div>
+          </div>
+
+          <!-- Platforms -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Publish To</label>
+            <div id="platform-chips" class="flex flex-wrap gap-2">
+              <div class="text-gray-600 text-xs pulse">Loading accounts…</div>
+            </div>
+          </div>
+
+          <!-- Caption -->
+          <div>
+            <label for="caption" class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Caption</label>
+            <textarea id="caption" rows="4" placeholder="Write something engaging…" class="w-full bg-surface-100 border border-surface-200 rounded-xl px-4 py-3 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 resize-none transition-all"></textarea>
+            <p class="text-right text-[11px] text-gray-600 mt-1"><span id="char-count">0</span> characters</p>
+          </div>
+
+          <!-- Schedule -->
+          <div>
+            <label for="schedule" class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Schedule</label>
+            <input type="datetime-local" id="schedule" class="bg-surface-100 border border-surface-200 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/50 transition-all w-full sm:w-auto">
+          </div>
+
+          <!-- Submit -->
+          <div class="pt-2">
+            <button type="submit" id="submit-btn" class="bg-gradient-to-r from-brand to-brand-light hover:from-brand-dark hover:to-brand text-white font-semibold px-8 py-3 rounded-xl transition-all flex items-center gap-2.5 shadow-lg shadow-brand/20 hover:shadow-brand/30 disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+              Publish Post
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ════════ VIEW: Connections ════════ -->
+      <section id="view-connections" class="p-8 hidden">
+        <div class="mb-8">
+          <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Connected Accounts</h2>
+          <div id="conn-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div id="conn-loading" class="col-span-full flex items-center justify-center py-16 text-gray-600 text-sm"><div class="spinner mr-3" style="border-color:rgba(255,255,255,0.08);border-top-color:#7c5cfc"></div>Loading…</div>
+          </div>
+          <div id="conn-empty" class="hidden text-center py-16">
+            <div class="w-16 h-16 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
+              <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            </div>
+            <p class="text-gray-500 text-sm">No accounts connected yet</p>
+          </div>
         </div>
-
-        <div id="connections-view" class="connections-grid">
+        <div>
+          <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Connect New Account</h2>
+          <div id="connect-btns" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
         </div>
-    </div>
+      </section>
 
-    <script>
-        function logout() {
-            // 1. Confirm with the user before destroying the session
-            const confirmLogout = confirm("Are you sure you want to log out and end your session?");
+      <!-- ════════ VIEW: History ════════ -->
+      <section id="view-history" class="p-8 hidden">
+        <div class="bg-surface-50 rounded-2xl border border-surface-200/50 overflow-hidden">
+          <div class="px-6 py-4 border-b border-surface-200/40 flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-white">Recent Posts</h2>
+            <span class="text-[11px] text-gray-500">Showing placeholder data</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead>
+                <tr class="border-b border-surface-200/30">
+                  <th class="px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Video</th>
+                  <th class="px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Platforms</th>
+                  <th class="px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Scheduled</th>
+                  <th class="px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody id="history-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-            if (confirmLogout) {
-                console.log("🚪 Logging out: Clearing session and redirecting...");
+      <!-- ════════ VIEW: Settings ════════ -->
+      <section id="view-settings" class="p-8 max-w-xl mx-auto hidden">
+        <div class="bg-surface-50 rounded-2xl border border-surface-200/50 p-8">
+          <!-- Avatar -->
+          <div class="flex items-center gap-5 mb-8">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand to-mint flex items-center justify-center text-white text-2xl font-bold shadow-lg">U</div>
+            <div>
+              <h3 class="text-lg font-bold text-white">User Account</h3>
+              <p class="text-sm text-gray-500">user@example.com</p>
+            </div>
+          </div>
 
-                // 2. Clear client-side persistence
-                localStorage.clear();
-                sessionStorage.clear();
+          <div class="space-y-4 mb-8">
+            <div class="flex items-center justify-between py-3 border-b border-surface-200/30">
+              <span class="text-sm text-gray-400">Plan</span>
+              <span class="text-sm text-white font-medium">Free</span>
+            </div>
+            <div class="flex items-center justify-between py-3 border-b border-surface-200/30">
+              <span class="text-sm text-gray-400">Connected Accounts</span>
+              <span class="text-sm text-white font-medium" id="settings-count">—</span>
+            </div>
+          </div>
 
-                // 3. Clear cookies (Optional but recommended for robust logout)
-                document.cookie.split(";").forEach((c) => {
-                    document.cookie = c
-                        .replace(/^ +/, "")
-                        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-                });
+          <!-- Links -->
+          <div class="space-y-2 mb-8">
+            <a href="#" class="flex items-center gap-3 text-sm text-gray-400 hover:text-brand-light transition-colors py-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              Terms of Service
+            </a>
+            <a href="#" class="flex items-center gap-3 text-sm text-gray-400 hover:text-brand-light transition-colors py-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              Privacy Policy
+            </a>
+          </div>
 
-                // 4. Redirect to the main login/connection page
-                window.location.href = '/';
-            } else {
-                // User clicked 'Cancel', do nothing and stay on the dashboard
-                console.log("✅ Logout cancelled by user.");
-            }
-        }
+          <!-- Logout -->
+          <button onclick="doLogout()" class="w-full bg-coral/10 hover:bg-coral/20 text-coral font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            Log Out
+          </button>
+        </div>
+      </section>
 
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const mbSize = (file.size / (1024 * 1024)).toFixed(2);
-                document.getElementById('upload-text').innerText = "✅ Video Ready";
-                const details = document.getElementById('file-details');
-                details.innerText = `${file.name} (${mbSize} MB)`;
-                details.style.display = 'block';
-            }
-        }
+    </main>
+  </div>
 
-        async function submitRealPost() {
-            const fileInput = document.getElementById('file-input');
-            const privacy = document.getElementById('privacy-select').value;
-            const caption = document.getElementById('post-caption').value;
+<script>
+// ═══════════════════════════════════════════
+// Platform registry
+// ═══════════════════════════════════════════
+const P = {
+  tiktok:    { n:'TikTok',    c:'#00f2ea', bg:'#000',    ic:'♪' },
+  instagram: { n:'Instagram', c:'#E1306C', bg:'#E1306C', ic:'📷' },
+  youtube:   { n:'YouTube',   c:'#FF0000', bg:'#FF0000', ic:'▶' },
+  facebook:  { n:'Facebook',  c:'#1877F2', bg:'#1877F2', ic:'f' },
+  twitter:   { n:'Twitter/X', c:'#1DA1F2', bg:'#14171A', ic:'𝕏' },
+  linkedin:  { n:'LinkedIn',  c:'#0A66C2', bg:'#0A66C2', ic:'in'},
+  pinterest: { n:'Pinterest', c:'#E60023', bg:'#E60023', ic:'P' },
+  threads:   { n:'Threads',   c:'#000',    bg:'#000',    ic:'@' },
+};
 
-            // 1. Get the raw local time from the input field
-            const rawTime = document.getElementById('schedule-date').value;
+const API_PROFILE = '/api/v1/oauth/user/profile/1';
+const API_PUBLISH = '/api/v1/publish/web-direct';
+const API_LOGIN   = p => `/api/v1/oauth/login/${p}/1`;
 
-            // 2. Validate everything BEFORE doing any time conversions
-            if (!fileInput.files[0]) { alert("Please select a video file."); return; }
-            if (!privacy) { alert("Please select a Privacy Level."); return; }
-            if (!rawTime) { alert("Please select a schedule date & time."); return; } // ✨ Validating rawTime
+let accounts = [];
+let selected = new Set();
 
-            const proceed = confirm(
-                "Are you sure you want to schedule this post?"
-            );
+// ═══════════════════════════════════════════
+// Navigation
+// ═══════════════════════════════════════════
+const views = ['create','connections','history','settings'];
 
-            if (!proceed) return;
+function go(v) {
+  views.forEach(id => {
+    document.getElementById('view-'+id).classList.toggle('hidden', id !== v);
+    const nav = document.getElementById('nav-'+id);
+    if (id === v) {
+      nav.classList.add('active');
+      nav.classList.remove('text-gray-400');
+    } else {
+      nav.classList.remove('active');
+      nav.classList.add('text-gray-400');
+    }
+  });
+  const titles = { create:'Create Post', connections:'Connections', history:'History & Logs', settings:'Settings' };
+  document.getElementById('page-title').textContent = titles[v];
+  if (v === 'settings') document.getElementById('settings-count').textContent = accounts.length;
+}
 
-            const btn = document.getElementById('publish-btn');
-            const msg = document.getElementById('success-msg');
+// ═══════════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════════
+function toast(msg, type='success') {
+  const colors = { success:'border-mint bg-mint/10 text-mint', error:'border-coral bg-coral/10 text-coral', info:'border-brand bg-brand/10 text-brand-light' };
+  const el = document.createElement('div');
+  el.className = `toast-enter pointer-events-auto border-l-4 ${colors[type]||colors.info} px-5 py-3 rounded-lg shadow-2xl text-sm font-medium backdrop-blur-md`;
+  el.textContent = msg;
+  document.getElementById('toast-wrap').appendChild(el);
+  setTimeout(() => { el.classList.add('toast-exit'); setTimeout(() => el.remove(), 250); }, 3000);
+}
 
-            btn.innerText = "Uploading to Server...";
-            btn.disabled = true;
+// ═══════════════════════════════════════════
+// Fetch accounts
+// ═══════════════════════════════════════════
+async function loadAccounts() {
+  try {
+    const r = await fetch(API_PROFILE);
+    if (!r.ok) throw 0;
+    accounts = (await r.json()).accounts || [];
+  } catch {
+    // Fallback demo data
+    accounts = [
+      { credential_id:5, platform:'tiktok',    username:'MyBusiness',  updated_at:'2026-03-15' },
+      { credential_id:8, platform:'instagram', username:'ShopInsta',   updated_at:'2026-03-14' },
+      { credential_id:12,platform:'youtube',   username:'CreatorHub',  updated_at:'2026-03-10' },
+    ];
+  }
+  renderChips();
+  renderConnCards();
+  renderConnectBtns();
+}
 
-            // 3. Convert the validated local time to UTC for the backend
-            const localDate = new Date(rawTime);
-            const scheduledTimeUTC = localDate.toISOString(); // Generates standard UTC format
+// ═══════════════════════════════════════════
+// Render: platform chips (Create Post)
+// ═══════════════════════════════════════════
+function renderChips() {
+  const box = document.getElementById('platform-chips');
+  if (!accounts.length) { box.innerHTML = '<p class="text-gray-600 text-xs">No accounts connected.</p>'; return; }
+  box.innerHTML = accounts.map(a => {
+    const p = P[a.platform] || { n:a.platform, c:'#7c5cfc', ic:'?' };
+    return `<button type="button" onclick="toggleChip(this,'${a.platform}',${a.credential_id})"
+      data-key="${a.platform}:${a.credential_id}"
+      class="chip flex items-center gap-2.5 pl-3 pr-4 py-2 rounded-xl border border-surface-200 text-[13px] font-medium text-gray-400">
+      <span class="chip-check w-4 h-4 rounded border border-surface-200 flex items-center justify-center transition-all">
+        <svg class="w-2.5 h-2.5 text-white opacity-0 transition-opacity" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      </span>
+      <span class="w-5 h-5 rounded-md flex items-center justify-center text-white text-[10px] font-bold shrink-0" style="background:${p.bg}">${p.ic}</span>
+      ${p.n}: @${a.username}
+    </button>`;
+  }).join('');
+}
 
-            const formData = new FormData();
-            formData.append("file", fileInput.files[0]);
-            formData.append("privacy", privacy);
-            formData.append("caption", caption);
-            // ✨ 4. Send the UTC time to the server
-            formData.append("scheduled_time", scheduledTimeUTC);
+function toggleChip(el, platform, id) {
+  const key = `${platform}:${id}`;
+  if (selected.has(key)) { selected.delete(key); el.classList.remove('selected'); }
+  else { selected.add(key); el.classList.add('selected'); }
+}
 
-            try {
-                const response = await fetch('/api/v1/publish/web-direct', {
-                    method: 'POST',
-                    body: formData
-                });
+// ═══════════════════════════════════════════
+// Render: connection cards
+// ═══════════════════════════════════════════
+function renderConnCards() {
+  const grid = document.getElementById('conn-grid');
+  document.getElementById('conn-loading')?.remove();
+  if (!accounts.length) { document.getElementById('conn-empty').classList.remove('hidden'); return; }
+  grid.innerHTML = accounts.map(a => {
+    const p = P[a.platform] || { n:a.platform, c:'#7c5cfc', bg:'#7c5cfc', ic:'?' };
+    const d = new Date(a.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    return `<div class="bg-surface-100 rounded-2xl p-5 card-lift border border-surface-200/40">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-lg" style="background:${p.bg};box-shadow:0 6px 20px ${p.c}22">${p.ic}</div>
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] font-bold uppercase tracking-widest mb-0.5" style="color:${p.c}">${p.n}</p>
+          <p class="text-white font-semibold text-sm truncate">@${a.username}</p>
+          <p class="text-[11px] text-gray-600 mt-1.5">Connected ${d}</p>
+        </div>
+        <div class="w-2 h-2 rounded-full bg-mint mt-1.5 shrink-0" title="Active"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-                const contentType = response.headers.get("content-type");
-                if (response.ok) {
-                    btn.style.display = 'none';
-                    msg.style.display = 'block';
-                    msg.innerText = "✅ Success! Video scheduled on the server.";
-                } else if (contentType && contentType.includes("application/json")) {
-                    const error = await response.json();
-                    alert("Error publishing: " + (error.detail || "Unknown error"));
-                    btn.innerText = "Try Again";
-                    btn.disabled = false;
-                } else {
-                    alert(`Server Error ${response.status}: Ensure Nginx allows large file uploads.`);
-                    btn.innerText = "Try Again";
-                    btn.disabled = false;
-                }
-            } catch (err) {
-                alert("Network error: " + err.message);
-                btn.innerText = "Try Again";
-                btn.disabled = false;
-            }
-        }
+function renderConnectBtns() {
+  const has = new Set(accounts.map(a => a.platform));
+  document.getElementById('connect-btns').innerHTML = Object.entries(P).map(([k,p]) => {
+    const done = has.has(k);
+    return `<a href="${API_LOGIN(k)}" class="flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all ${done ? 'border-mint/20 bg-mint/5 pointer-events-none' : 'border-surface-200 hover:border-brand/40 hover:bg-surface-100'}">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0" style="background:${p.bg}">${p.ic}</div>
+      <span class="text-[13px] font-medium flex-1 ${done?'text-mint':'text-gray-300'}">${p.n}</span>
+      ${done ? '<svg class="w-4 h-4 text-mint" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '<svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>'}
+    </a>`;
+  }).join('');
+}
 
-        // Function to load dynamic profile data
-        async function fetchAccountData() {
-            try {
-                // We assume client_id 1 for now, as in your routes
-                const response = await fetch('/api/v1/oauth/user/profile/1');
-                const data = await response.json();
-                const profiles = data.profiles || {};
+// ═══════════════════════════════════════════
+// History (placeholder)
+// ═══════════════════════════════════════════
+const historyData = [
+  { video:'summer_promo.mp4', platforms:['tiktok','instagram'], date:'2026-03-15T14:00', status:'completed' },
+  { video:'product_launch.mp4', platforms:['youtube','facebook'], date:'2026-03-16T09:30', status:'pending' },
+  { video:'behind_scenes.mp4', platforms:['tiktok'], date:'2026-03-14T18:00', status:'failed' },
+  { video:'tutorial_ep3.mp4', platforms:['youtube'], date:'2026-03-17T12:00', status:'pending' },
+  { video:'flash_sale.mp4', platforms:['instagram','tiktok','facebook'], date:'2026-03-13T20:00', status:'completed' },
+  { video:'team_intro.mp4', platforms:['linkedin'], date:'2026-03-18T10:00', status:'processing' },
+];
 
-                // 1. Update the Header (Connected as: @name)
-                const userDisplay = document.querySelector('.connected-account b');
-                if (profiles.tiktok && profiles.tiktok.connected) {
-                    userDisplay.innerText = `@${profiles.tiktok.username}`;
-                } else {
-                    userDisplay.innerText = "No account linked";
-                    document.querySelector('.connected-account').style.borderColor = "var(--danger-color)";
-                }
+function renderHistory() {
+  document.getElementById('history-body').innerHTML = historyData.map(h => {
+    const d = new Date(h.date).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const pills = h.platforms.map(pk => {
+      const p = P[pk]||{n:pk,c:'#7c5cfc',ic:'?'};
+      return `<span class="inline-flex items-center gap-1 text-[11px] font-medium mr-1" style="color:${p.c}"><span class="text-[9px]">${p.ic}</span>${p.n}</span>`;
+    }).join('');
+    const bc = {pending:'badge-pending',completed:'badge-completed',failed:'badge-failed',processing:'badge-processing'}[h.status]||'badge-pending';
+    return `<tr class="border-b border-surface-200/20 hover:bg-surface-100/50 transition-colors">
+      <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-surface-200 flex items-center justify-center"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg></div><span class="text-sm text-gray-200 font-medium">${h.video}</span></div></td>
+      <td class="px-6 py-4">${pills}</td>
+      <td class="px-6 py-4 text-sm text-gray-400">${d}</td>
+      <td class="px-6 py-4"><span class="badge ${bc}">${h.status}</span></td>
+    </tr>`;
+  }).join('');
+}
 
-                // 2. Update the "Connections" sidebar item (Optional enhancement)
-                const connectionsNav = document.querySelector('.nav-item:nth-child(2)');
-                if (profiles.tiktok) {
-                    connectionsNav.innerHTML = `🔌 Connections <span style="font-size:0.7rem; color:var(--success-color)">(1 Active)</span>`;
-                }
-            } catch (err) {
-                console.error("Failed to load profile data:", err);
-            }
-        }
+// ═══════════════════════════════════════════
+// File upload
+// ═══════════════════════════════════════════
+const dz = document.getElementById('drop-zone');
+const fi = document.getElementById('file-input');
+dz.addEventListener('click', () => fi.click());
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drop-active'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drop-active'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drop-active'); if(e.dataTransfer.files.length){fi.files=e.dataTransfer.files;onFile(fi);} });
 
-        // Function to update UI with real account data
-        async function updateUIWithProfile() {
-            try {
-                // We call the endpoint for client 1 (as established in your routes)
-                const response = await fetch('/api/v1/oauth/user/profile/1');
-                const data = await response.json();
-                const profiles = data.profiles || {};
+function onFile(inp) {
+  const f = inp.files[0];
+  if (f) {
+    document.getElementById('file-label').innerHTML = `<span class="text-brand-light font-semibold">${f.name}</span> <span class="text-gray-500">(${(f.size/1048576).toFixed(1)} MB)</span>`;
+    dz.classList.add('border-brand/30');
+  }
+}
 
-                // 1. UPDATE HEADER USERNAME
-                const usernameB = document.getElementById('display-username');
-                if (profiles.tiktok && profiles.tiktok.connected) {
-                    usernameB.innerText = `@${profiles.tiktok.username}`;
-                } else {
-                    usernameB.innerText = "No account linked";
-                    usernameB.parentElement.style.borderColor = "var(--danger-color)";
-                }
+// Character count
+document.getElementById('caption').addEventListener('input', e => {
+  document.getElementById('char-count').textContent = e.target.value.length;
+});
 
-                // 2. UPDATE "CONNECTIONS" SIDEBAR ITEM
-                const connectionsItem = document.querySelector('.nav-item:nth-child(2)');
-                const activeCount = Object.keys(profiles).length;
-                if (activeCount > 0) {
-                    connectionsItem.innerHTML = `🔌 Connections <span style="font-size:0.75rem; color:var(--success-color)">(${activeCount} Active)</span>`;
-                }
+// ═══════════════════════════════════════════
+// Submit post
+// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+// Submit post
+// ═══════════════════════════════════════════
+async function submitPost(e) {
+  e.preventDefault();
+  const file = fi.files[0];
+  const caption = document.getElementById('caption').value;
+  const sched = document.getElementById('schedule').value;
+  const btn = document.getElementById('submit-btn');
 
-            } catch (err) {
-                console.error("❌ Error fetching profile:", err);
-            }
-        }
+  if (!file) return toast('Please select a video file.','error');
+  if (!selected.size) return toast('Select at least one platform.','error');
+  if (!caption.trim()) return toast('Please enter a caption.','error');
 
-        // Function to switch between views
-        // 1. Switch between Post Creator and Connections Grid
-        async function switchView(event, view) {
-            const composerView = document.getElementById('composer-view');
-            const connectionsView = document.getElementById('connections-view');
-            const title = document.getElementById('view-title');
+  const arr = [...selected].map(k => {
+    const [platform,id] = k.split(':');
+    return { platform, credential_id: parseInt(id) }; // Aseguramos que el ID sea número
+  });
 
-            // Update Sidebar Active State
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            if (event && event.currentTarget) {
-                event.currentTarget.classList.add('active');
-            }
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('caption', caption);
+  fd.append('platforms_json', JSON.stringify(arr));
 
-            if (view === 'create') {
-                composerView.style.display = 'block';
-                connectionsView.style.display = 'none';
-                title.innerText = "Create New Post";
-            } else {
-                composerView.style.display = 'none';
-                connectionsView.style.display = 'grid'; // Force grid display
-                title.innerText = "Managed Connections";
-                await loadConnectionsList(); // Refresh data when opening
-            }
-        }
+  // ✨ FIX 1: Enviar privacidad por defecto (El backend la pide obligatoriamente)
+  fd.append('privacy', 'PUBLIC');
 
-        // Function to fetch and render connections
-        // 2. Fetch and render account cards
-        async function loadConnectionsList() {
-            const container = document.getElementById('connections-view');
-            container.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>🔄 Loading accounts...</p>";
+  // ✨ FIX 2: Asegurar que siempre enviamos una fecha
+  if (sched) {
+    fd.append('scheduled_time', new Date(sched).toISOString());
+  } else {
+    // Si el usuario no elige fecha, asumimos publicación inmediata (fecha actual UTC)
+    fd.append('scheduled_time', new Date().toISOString());
+  }
 
-            try {
-                const response = await fetch('/api/v1/oauth/user/profile/1');
-                const data = await response.json();
-                const profiles = data.profiles || {};
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner"></div> Publishing…';
 
-                container.innerHTML = ""; // Clear loader
+  try {
+    const r = await fetch(API_PUBLISH, {method:'POST', body:fd});
+    if (!r.ok) {
+        // Intentar leer el error del backend para mostrarlo
+        const errorData = await r.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Server error: ${r.status}`);
+    }
 
-                const platforms = [
-                    { id: 'tiktok', color: '#00f2fe', icon: 'https://cdn-icons-png.flaticon.com/512/3046/3046121.png' },
-                    { id: 'youtube', color: '#FF0000', icon: 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png' },
-                    { id: 'instagram', color: '#E1306C', icon: 'https://cdn-icons-png.flaticon.com/512/174/174855.png' }
-                ];
+    toast('Post published successfully!');
+    document.getElementById('post-form').reset();
+    document.getElementById('file-label').innerHTML = 'Drop your <span class="text-brand-light">.mp4</span> file here or <span class="text-brand-light underline underline-offset-2">browse</span>';
+    dz.classList.remove('border-brand/30');
+    document.getElementById('char-count').textContent = '0';
+    selected.clear();
+    renderChips();
 
-                platforms.forEach(p => {
-                    const info = profiles[p.id];
-                    const card = document.createElement('div');
-                    card.className = `connection-card ${info ? 'active' : ''}`;
-                    card.style.borderLeft = `4px solid ${info ? p.color : '#444'}`;
+    // Opcional: Recargar la vista del historial aquí si la estuviéramos conectando
+    // renderHistory();
 
-                    card.innerHTML = `
-                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
-                            <img src="${p.icon}" style="width:24px; height:24px;">
-                            <h3 style="margin:0; text-transform:capitalize;">${p.id}</h3>
-                        </div>
-                        ${info
-                            ? `<div class="user-tag">@${info.username}</div>
-                               <div class="sync-date"><span class="status-dot"></span> Active since: ${info.last_sync || 'Just Now'}</div>
-                               <button onclick="window.location.href='/api/v1/oauth/login/${p.id}/1'" style="margin-top:15px; background:transparent; border:1px solid #555; color:#aaa; font-size:0.7rem; padding:5px 10px; cursor:pointer;">Reconnect</button>`
-                            : `<div style="color:#666; font-size:0.9rem; margin-bottom:15px;">No account linked</div>
-                               <button class="publish-btn" onclick="window.location.href='/api/v1/oauth/login/${p.id}/1'" style="padding:8px; font-size:0.8rem;">Connect ${p.id}</button>`
-                        }
-                    `;
-                    container.appendChild(card);
-                });
+  } catch(err) {
+    toast('Publish failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
 
-                // Sync Header Username
-                const headerName = document.getElementById('display-username');
-                if (profiles.tiktok && headerName) {
-                    headerName.innerText = `@${profiles.tiktok.username}`;
-                }
+// ═══════════════════════════════════════════
+// Settings
+// ═══════════════════════════════════════════
+function doLogout() {
+  localStorage.clear();
+  toast('Logged out.','info');
+  setTimeout(() => window.location.href = '/', 600);
+}
 
-                // Sync Sidebar Badge
-                const connNav = document.querySelector('.nav-item:nth-child(1)');
-                const activeCount = Object.keys(profiles).length;
-                if (connNav) connNav.innerHTML = `🔌 Connections <span style="font-size:0.7rem; color:var(--success-color)">(${activeCount} Active)</span>`;
+// ═══════════════════════════════════════════
+// Clock
+// ═══════════════════════════════════════════
+function tick() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+setInterval(tick, 30000); tick();
 
-            } catch (err) {
-                console.error("Dashboard Load Error:", err);
-            }
-        }
-
-        // Update window.onload to include profile fetching
-        window.onload = function() {
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            document.getElementById('schedule-date').value = now.toISOString().slice(0,16);
-
-            // FETCH DYNAMIC DATA
-            loadConnectionsList();
-        };
-    </script>
+// ═══════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════
+loadAccounts();
+renderHistory();
+</script>
 </body>
 </html>
