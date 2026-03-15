@@ -37,6 +37,10 @@ TEMP_MEDIA_DIR = "temp_media"
 if not os.path.exists(TEMP_MEDIA_DIR):
     os.makedirs(TEMP_MEDIA_DIR)
 
+IMG_MEDIA_DIR = "img"
+if not os.path.exists(IMG_MEDIA_DIR):
+    os.makedirs(IMG_MEDIA_DIR)
+
 
 def run_db_listener():
     """
@@ -100,6 +104,7 @@ app = FastAPI(
 
 # Mount the static directory so Meta can access videos via URL
 app.mount("/temp", StaticFiles(directory=TEMP_MEDIA_DIR), name="temp")
+app.mount("/img", StaticFiles(directory=IMG_MEDIA_DIR), name="img")
 
 logger.info(f"[Main] Static route /temp mounted pointing to {TEMP_MEDIA_DIR}")
 
