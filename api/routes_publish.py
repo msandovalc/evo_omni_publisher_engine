@@ -151,3 +151,29 @@ async def publish_web_direct(
         if 'db' in locals(): db.rollback()
         logger.error(f"🔥 FATAL ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- 5. GET POST HISTORY METHOD ---
+@router.get("/history/{client_id}")
+def get_post_history(client_id: int, db: Session = Depends(get_db)):
+    """Fetches real post history for the Dashboard table."""
+    posts = db.query(ScheduledPost).filter(ScheduledPost.client_id == client_id).order_by(
+        ScheduledPost.created_at.desc()).limit(20).all()
+
+    history = []
+    for post in posts:
+        platform_names = []
+        if isinstance(post.platforms, list):
+            for plat in post.platforms:
+                if isinstance(plat, dict):
+                    platform_names.append(plat.get("platform", "unknown"))
+                else:
+                    platform_names.append(str(plat))
+
+        history.append({
+            "video": post.video_file_id,
+            "platforms": platform_names,
+            "date": post.scheduled_time.isoformat(),
+            "status": post.status
+        })
+
+    return history
