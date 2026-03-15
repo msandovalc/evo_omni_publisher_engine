@@ -413,15 +413,19 @@ function renderConnectBtns() {
 }
 
 // ═══════════════════════════════════════════
-// History (Dynamic from Backend)
-// ═══════════════════════════════════════════
-let historyData = [];
+// History (Dynamic, Sortable & Paginated)
+// ═══════════════════════════════════════════ss
+let fullHistory = [];
+let currentPage = 1;
+const itemsPerPage = 25; // ✨ Requisito cumplido: 25 elementos por página
+let sortKey = 'date';
+let sortDesc = true;
 
 async function loadHistory() {
   try {
     const r = await fetch('/api/v1/publish/history/1');
     if (r.ok) {
-      historyData = await r.json();
+      fullHistory = await r.json();
       renderHistory();
     }
   } catch (err) {
@@ -429,16 +433,68 @@ async function loadHistory() {
   }
 }
 
+// ✨ Lógica para ordenar por columnas
+function sortBy(key) {
+  if (sortKey === key) {
+    sortDesc = !sortDesc; // Invierte el orden si das clic en la misma columna
+  } else {
+    sortKey = key;
+    sortDesc = key === 'date'; // Por defecto, fechas van de más nueva a vieja
+  }
+  currentPage = 1; // Regresa a la página 1 al reordenar
+  renderHistory();
+}
+
+// ✨ Lógica para cambiar de página
+function changePage(dir) {
+  currentPage += dir;
+  renderHistory();
+}
+
 function renderHistory() {
   const tbody = document.getElementById('history-body');
 
-  if (historyData.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500 text-sm">No recent posts found</td></tr>';
+  if (fullHistory.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500 text-sm">No posts found</td></tr>';
+      document.getElementById('history-stats').innerText = "0 posts";
       return;
   }
 
-  tbody.innerHTML = historyData.map(h => {
-    const d = new Date(h.date).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  // 1. Ordenar Datos
+  let sortedData = [...fullHistory].sort((a, b) => {
+    let valA, valB;
+    if (sortKey === 'video') { valA = a.video.toLowerCase(); valB = b.video.toLowerCase(); }
+    else if (sortKey === 'platforms') { valA = a.platforms.join(',').toLowerCase(); valB = b.platforms.join(',').toLowerCase(); }
+    else if (sortKey === 'date') { valA = new Date(a.date).getTime(); valB = new Date(b.date).getTime(); }
+    else if (sortKey === 'status') { valA = a.status.toLowerCase(); valB = b.status.toLowerCase(); }
+
+    if (valA < valB) return sortDesc ? 1 : -1;
+    if (valA > valB) return sortDesc ? -1 : 1;
+    return 0;
+  });
+
+  // 2. Actualizar Flechas de Ordenamiento en UI
+  ['video', 'platforms', 'date', 'status'].forEach(k => {
+      document.getElementById(`sort-icon-${k}`).innerText = sortKey === k ? (sortDesc ? ' ↓' : ' ↑') : '';
+  });
+
+  // 3. Paginar Datos
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const paginatedData = sortedData.slice(startIdx, startIdx + itemsPerPage);
+
+  // 4. Actualizar Botones de Paginación
+  document.getElementById('btn-prev').disabled = currentPage === 1;
+  document.getElementById('btn-next').disabled = currentPage === totalPages;
+  document.getElementById('page-indicator').innerText = `Page ${currentPage} of ${totalPages}`;
+  document.getElementById('history-stats').innerText = `Total: ${fullHistory.length} posts`;
+
+  // 5. Renderizar Filas
+  tbody.innerHTML = paginatedData.map(h => {
+    const d = new Date(h.date).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const pills = h.platforms.map(pk => {
       const p = P[pk]||{n:pk,c:'#7c5cfc',ic:'?'};
       return `<span class="inline-flex items-center gap-1 text-[11px] font-medium mr-1" style="color:${p.c}"><span class="text-[9px]">${p.ic}</span>${p.n}</span>`;
@@ -446,10 +502,10 @@ function renderHistory() {
     const bc = {pending:'badge-pending',completed:'badge-completed',failed:'badge-failed',processing:'badge-processing'}[h.status]||'badge-pending';
 
     return `<tr class="border-b border-surface-200/20 hover:bg-surface-100/50 transition-colors">
-      <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-surface-200 flex items-center justify-center"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg></div><span class="text-sm text-gray-200 font-medium">${h.video}</span></div></td>
-      <td class="px-6 py-4">${pills}</td>
-      <td class="px-6 py-4 text-sm text-gray-400">${d}</td>
-      <td class="px-6 py-4"><span class="badge ${bc}">${h.status}</span></td>
+      <td class="px-6 py-3"><div class="flex items-center gap-3"><div class="w-7 h-7 rounded bg-surface-200 flex items-center justify-center shrink-0"><svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg></div><span class="text-[13px] text-gray-200 font-medium truncate max-w-[200px]" title="${h.video}">${h.video}</span></div></td>
+      <td class="px-6 py-3 whitespace-nowrap">${pills}</td>
+      <td class="px-6 py-3 text-[12px] text-gray-400 whitespace-nowrap">${d}</td>
+      <td class="px-6 py-3 whitespace-nowrap"><span class="badge ${bc}">${h.status}</span></td>
     </tr>`;
   }).join('');
 }
