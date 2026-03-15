@@ -162,7 +162,7 @@ async def terms_of_service():
 
             <p><strong>Email:</strong> <a href="mailto:dev.ia.automation@gmail.com">dev.ia.automation@gmail.com</a></p>
 
-            <p style="margin-top: 30px;"><a href="/">&larr; Back to Home</a></p>
+            <a href="/dashboard.html" style="color: gray; text-decoration: none;">← Back to Dashboard</a>
         </div>
     </body>
     </html>
@@ -202,7 +202,7 @@ async def privacy_policy():
 
             <p><strong>Email:</strong> <a href="mailto:dev.ia.automation@gmail.com">dev.ia.automation@gmail.com</a></p>
 
-            <p style="margin-top: 30px;"><a href="/">&larr; Back to Home</a></p>
+            <a href="/dashboard.html" style="color: gray; text-decoration: none;">← Back to Dashboard</a>
         </div>
     </body>
     </html>
