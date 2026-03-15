@@ -4,6 +4,7 @@ import logging
 from database.session import SessionLocal
 from database.models import ScheduledPost, SocialCredential
 from storage.oracle_s3 import download_video
+from datetime import datetime, timedelta  # ✨ NEW: Required for Smart Retry
 
 # Existing Publishers
 from publishers.youtube import upload_video
@@ -20,7 +21,7 @@ BASE_PUBLIC_URL = "https://evo-omni-engine.duckdns.org/temp"
 def process_single_post(post_id: int):
     """
     Orchestrates the full flow: DB Fetch -> Oracle Download -> Multi-Platform Upload -> Clean-Up.
-    Now passes DB session and Client ID to enable token refreshing.
+    Now supports explicit credential IDs for Multi-Account publishing and Smart Retries.
     """
     db = SessionLocal()
     local_video_path = None
@@ -52,19 +53,30 @@ def process_single_post(post_id: int):
         overall_success = True
 
         # 4. Iterate through requested platforms
-        for platform_raw in post.platforms:
-            # Normalize platform name to lowercase to match DB keys (e.g., 'TikTok' -> 'tiktok')
-            platform = platform_raw.lower()
+        for platform_item in post.platforms:
+
+            # ✨ NEW: Multi-Account Parsing
+            # Supports legacy strings ["tiktok"] and new JSON objects [{"platform": "tiktok", "credential_id": 5}]
+            credential_id = None
+            if isinstance(platform_item, dict):
+                platform = platform_item.get("platform", "").lower()
+                credential_id = platform_item.get("credential_id")
+            else:
+                platform = str(platform_item).lower()
+
             logger.info(f"[Manager] Routing to platform: {platform.upper()}")
 
             # Meta platforms (IG/FB) share the same credentials stored under 'instagram' key
             lookup_platform = 'instagram' if platform in ['instagram', 'facebook'] else platform
 
-            # Fetch credentials for this specific client and platform
-            creds = db.query(SocialCredential).filter_by(
-                client_id=post.client_id,
-                platform=lookup_platform
-            ).first()
+            # ✨ NEW: Targeted Credential Lookup
+            if credential_id:
+                creds = db.query(SocialCredential).filter_by(id=credential_id, client_id=post.client_id).first()
+                if creds:
+                    logger.info(f"[Manager] Target specific credential ID {credential_id} found.")
+            else:
+                # Legacy fallback: Grab the first available credential for this platform
+                creds = db.query(SocialCredential).filter_by(client_id=post.client_id, platform=lookup_platform).first()
 
             if not creds:
                 logger.error(f"[Manager] No credentials found for {platform} (Client {post.client_id})")
@@ -136,9 +148,18 @@ def process_single_post(post_id: int):
                 overall_success = False
 
         # 5. Final Status Update
-        post.status = 'completed' if overall_success else 'failed'
+        if overall_success:
+            post.status = 'completed'
+            logger.info(f"[Manager] Orchestration finished. Status: completed")
+        else:
+            # ✨ NEW: Smart Retry Logic (Soft Fail)
+            # Instead of a hard fail, push it back to 'pending' and delay by 15 minutes
+            post.status = 'pending'
+            post.scheduled_time = datetime.utcnow() + timedelta(minutes=15)
+            logger.warning(
+                f"[Manager] Orchestration failed. Soft-fail activated: Post {post_id} rescheduled for 15 minutes later.")
+
         db.commit()
-        logger.info(f"[Manager] Orchestration finished. Status: {post.status}")
 
     except Exception as e:
         db.rollback()

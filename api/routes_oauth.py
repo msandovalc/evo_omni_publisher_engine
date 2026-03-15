@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 from database.session import get_db
 from database.models import SocialCredential
 
-
 # Load environment variables
 load_dotenv()
 
@@ -73,20 +72,9 @@ def login(platform: str, client_id: int, db: Session = Depends(get_db)):
         return RedirectResponse(authorization_url)
 
     elif platform == "tiktok":
-        # --- TIKTOK MVP TRICK: DELETE EXISTING TOKEN TO FORCE LOGIN SCREEN ---
-        existing_cred = db.query(SocialCredential).filter_by(
-            client_id=client_id, platform=platform
-        ).first()
-
-        if existing_cred:
-            db.delete(existing_cred)
-            db.commit()
-            logger.info(f"🗑️ Deleted existing TikTok token for client {client_id} to force login UI.")
-        # ---------------------------------------------------------------------
-
+        # ✨ REMOVED TOKEN DELETION HACK TO ALLOW MULTI-ACCOUNT SUPPORT
         redirect_uri = f"{BASE_URL}/api/v1/oauth/callback/tiktok"
         # Scopes: user.info.basic is needed for identity, video.publish for uploading
-        # scopes = "user.info.basic,video.publish"
         scopes = "user.info.basic,user.info.profile,user.info.stats,video.publish,video.upload,video.list"
 
         params = {
@@ -127,6 +115,8 @@ def get_user_profile(client_id: int, db: Session = Depends(get_db)):
     creds = db.query(SocialCredential).filter_by(client_id=client_id).all()
 
     profiles = {}
+    accounts_list = []  # ✨ NEW ARRAY FOR THE MULTI-ACCOUNT FRONTEND
+
     for c in creds:
         # Extract display name from stored token_data
         # TikTok stores it in 'user_info', Instagram in 'page_name', etc.
@@ -150,13 +140,23 @@ def get_user_profile(client_id: int, db: Session = Depends(get_db)):
         elif c.platform == "youtube":
             user_display = "YouTube Channel"
 
+        # ✨ STRUCTURE FOR LOVABLE (Supports multiple accounts of the same platform)
+        accounts_list.append({
+            "credential_id": c.id,
+            "platform": c.platform,
+            "username": user_display,
+            "account_id": c.token_data.get("account_id"),
+            "updated_at": c.updated_at.strftime("%Y-%m-%d %H:%M")
+        })
+
+        # ✨ LEGACY STRUCTURE (Keeps your current HTML working seamlessly)
         profiles[c.platform.lower()] = {
             "connected": True,
             "username": user_display,
             "updated_at": c.updated_at.strftime("%Y-%m-%d")
         }
 
-    return {"profiles": profiles}
+    return {"profiles": profiles, "accounts": accounts_list}
 
 
 @router.get("/callback/{platform}")
@@ -177,7 +177,6 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code missing")
 
-
     # ADJUSTMENT 1: Safe parsing for state "client_id_1" (changed from [2] to [-1])
     try:
         client_id = int(state.split("_")[-1])
@@ -185,6 +184,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
         client_id = 1
 
     token_data = {}
+    account_id = None  # ✨ Unique social network identifier
 
     # --- YOUTUBE TOKEN EXCHANGE (Flow based) ---
     if platform == "youtube":
@@ -196,11 +196,13 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
         )
         flow.fetch_token(code=code)
         credentials = flow.credentials
+        account_id = credentials.client_id or "youtube_default"  # ✨ Added account_id
         token_data = {
             "token": credentials.token,
             "refresh_token": credentials.refresh_token,
             "token_uri": credentials.token_uri,
-            "client_id": credentials.client_id
+            "client_id": credentials.client_id,
+            "account_id": account_id
         }
 
     # --- TIKTOK TOKEN EXCHANGE (Request based) ---
@@ -230,7 +232,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
         # --- Fetch Real TikTok User Info ---
 
         try:
-            user_info_url = "https://open.tiktokapis.com/v2/user/info/?fields=display_name,username,avatar_url"
+            user_info_url = "https://open.tiktokapis.com/v2/user/info/?fields=display_name,username,avatar_url,open_id"
             user_res = requests.get(
                 user_info_url,
                 headers={"Authorization": f"Bearer {token_data['access_token']}"}
@@ -241,12 +243,16 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             u_data = user_res.get("data", {}).get("user", {})
 
             display_name = u_data.get("display_name") or u_data.get("username") or "TikTok Account"
+            account_id = u_data.get("open_id") or display_name  # ✨ Extract unique ID
 
             token_data["display_name"] = display_name
-            logger.info(f"👤 TikTok User identified: {display_name}")
+            token_data["account_id"] = account_id  # ✨ Save in the token data
+            logger.info(f"👤 TikTok User identified: {display_name} ({account_id})")
         except Exception as e:
             logger.error(f"⚠️ Could not fetch TikTok user info: {str(e)}")
+            account_id = "unknown_tiktok"
             token_data["display_name"] = "TikTok User"
+            token_data["account_id"] = account_id
 
     # --- INSTAGRAM EXCHANGE (Request based) ---
     elif platform == "instagram":
@@ -300,21 +306,31 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
         if not selected_account_id and accounts_list:
             selected_account_id = accounts_list[0]['ig_id']
 
+        account_id = selected_account_id  # ✨ Assign unique ID for IG
+
         token_data = {
             "access_token": long_token,
             "instagram_account_id": selected_account_id,
             "available_accounts": accounts_list,
-            "token_type": "bearer"
+            "token_type": "bearer",
+            "account_id": account_id  # ✨ Save in the token data
         }
 
-    # --- DATABASE PERSISTENCE ---
-    existing_cred = db.query(SocialCredential).filter_by(
+    # --- ✨ DATABASE PERSISTENCE (MULTI-ACCOUNT LOGIC) ---
+    all_client_creds = db.query(SocialCredential).filter_by(
         client_id=client_id, platform=platform
-    ).first()
+    ).all()
+
+    # Check if THIS specific account is already registered
+    existing_cred = None
+    for cred in all_client_creds:
+        if cred.token_data.get("account_id") == account_id:
+            existing_cred = cred
+            break
 
     if existing_cred:
         existing_cred.token_data = token_data
-        logger.info(f"💾 Updated {platform.upper()} credentials for Client {client_id}")
+        logger.info(f"💾 Updated {platform.upper()} credentials for Account {account_id}")
     else:
         new_cred = SocialCredential(
             client_id=client_id,
@@ -322,7 +338,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             token_data=token_data
         )
         db.add(new_cred)
-        logger.info(f"💾 Saved NEW {platform.upper()} credentials for Client {client_id}")
+        logger.info(f"💾 Saved NEW {platform.upper()} credentials for Account {account_id}")
 
     db.commit()
     logger.info(f"🎉 {platform.upper()} linking process complete.")
@@ -335,7 +351,7 @@ def callback(platform: str, request: Request, db: Session = Depends(get_db)):
             "label": "YouTube"
         },
         "tiktok": {
-            "color": "#00f2ea", # TikTok Cyan/Red mix effect
+            "color": "#00f2ea",  # TikTok Cyan/Red mix effect
             "icon": "https://cdn-icons-png.flaticon.com/512/3046/3046121.png",
             "label": "TikTok"
         },

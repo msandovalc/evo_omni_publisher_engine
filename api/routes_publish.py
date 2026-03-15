@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, timezone
+import json
 from services.utils import get_smart_title
 
 from database.session import get_db
@@ -72,6 +73,7 @@ async def publish_web_direct(
         privacy: str = Form(...),
         caption: str = Form(""),
         scheduled_time: str = Form(...),
+        platforms_json: str = Form('["tiktok"]'),
         db: Session = Depends(get_db)
 ):
     # HIGH VISIBILITY LOGS
@@ -94,6 +96,12 @@ async def publish_web_direct(
             # Fallback to current UTC time if parsing fails
             parsed_scheduled_time = datetime.now(timezone.utc).replace(tzinfo=None)
             logger.warning("⚠️ Date parsing failed, falling back to current UTC time")
+
+        try:
+            parsed_platforms = json.loads(platforms_json)
+        except json.JSONDecodeError:
+            logger.warning("⚠️ Error parseando platforms_json. Usando fallback default.")
+            parsed_platforms = ["tiktok"]
 
         # Step 1: VPS Local Buffer
         temp_dir = "temp_media"
