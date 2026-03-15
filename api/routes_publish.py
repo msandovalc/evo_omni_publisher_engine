@@ -157,7 +157,7 @@ async def publish_web_direct(
 def get_post_history(client_id: int, db: Session = Depends(get_db)):
     """Fetches real post history for the Dashboard table."""
     posts = db.query(ScheduledPost).filter(ScheduledPost.client_id == client_id).order_by(
-        ScheduledPost.created_at.desc()).limit(20).all()
+        ScheduledPost.created_at.desc()).all()
 
     history = []
     for post in posts:

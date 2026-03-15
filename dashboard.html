@@ -200,24 +200,29 @@
       </section>
 
       <!-- ════════ VIEW: History ════════ -->
-      <section id="view-history" class="p-8 hidden">
-        <div class="bg-surface-50 rounded-2xl border border-surface-200/50 overflow-hidden">
-          <div class="px-6 py-4 border-b border-surface-200/40 flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-white">Recent Posts</h2>
-            <span class="text-[11px] text-gray-500">Showing placeholder data</span>
+      <section id="view-history" class="p-8 hidden h-full">
+        <div class="bg-surface-50 rounded-2xl border border-surface-200/50 overflow-hidden flex flex-col h-[calc(100vh-120px)]">
+          <div class="px-6 py-4 border-b border-surface-200/40 flex items-center justify-between shrink-0">
+            <h2 class="text-sm font-semibold text-white">Post History</h2>
+            <span class="text-[11px] text-gray-500" id="history-stats">Loading...</span>
           </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left">
-              <thead>
+          <div class="overflow-y-auto flex-1 relative">
+            <table class="w-full text-left relative">
+              <thead class="sticky top-0 bg-surface-50 z-10 shadow-sm">
                 <tr class="border-b border-surface-200/30">
-                  <th class="px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Video</th>
-                  <th class="px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Platforms</th>
-                  <th class="px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Scheduled</th>
-                  <th class="px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th onclick="sortBy('video')" class="cursor-pointer px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider hover:text-brand-light transition-colors select-none">Video <span id="sort-icon-video"></span></th>
+                  <th onclick="sortBy('platforms')" class="cursor-pointer px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider hover:text-brand-light transition-colors select-none">Platforms <span id="sort-icon-platforms"></span></th>
+                  <th onclick="sortBy('date')" class="cursor-pointer px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider hover:text-brand-light transition-colors select-none">Scheduled <span id="sort-icon-date">↓</span></th>
+                  <th onclick="sortBy('status')" class="cursor-pointer px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider hover:text-brand-light transition-colors select-none">Status <span id="sort-icon-status"></span></th>
                 </tr>
               </thead>
               <tbody id="history-body"></tbody>
             </table>
+          </div>
+          <div class="px-6 py-3 border-t border-surface-200/40 bg-surface-50/80 flex items-center justify-between shrink-0">
+            <button onclick="changePage(-1)" id="btn-prev" class="px-4 py-2 rounded-lg border border-surface-200 text-xs font-medium text-gray-400 hover:text-white hover:bg-surface-200/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">Previous</button>
+            <span class="text-xs text-gray-400 font-medium tracking-wide" id="page-indicator">Page 1</span>
+            <button onclick="changePage(1)" id="btn-next" class="px-4 py-2 rounded-lg border border-surface-200 text-xs font-medium text-gray-400 hover:text-white hover:bg-surface-200/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">Next</button>
           </div>
         </div>
       </section>
