@@ -57,8 +57,18 @@ def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client
 
     try:
         file_size = os.path.getsize(video_path)
-        CHUNK_SIZE = 20 * 1024 * 1024
-        total_chunk_count = math.ceil(file_size / CHUNK_SIZE)
+
+        # ✨ FIX: TikTok API Custom Chunking Math
+        # TikTok allows chunks up to 64MB.
+        if file_size <= 60 * 1024 * 1024:
+            # For videos under 60MB, the safest route is a single chunk.
+            CHUNK_SIZE = file_size
+            total_chunk_count = 1
+        else:
+            # For larger files, use 20MB chunks.
+            # TikTok strictly expects Math.floor() for the count (Oversized last chunk)
+            CHUNK_SIZE = 20 * 1024 * 1024
+            total_chunk_count = max(1, math.floor(file_size / CHUNK_SIZE))
 
         logger.info(f"[TikTok] Video size: {file_size} bytes. Calculated chunks: {total_chunk_count}")
 
@@ -80,7 +90,7 @@ def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client
             "source_info": {
                 "source": "FILE_UPLOAD",
                 "video_size": file_size,
-                "chunk_size": CHUNK_SIZE if total_chunk_count > 1 else file_size,
+                "chunk_size": CHUNK_SIZE,
                 "total_chunk_count": total_chunk_count
             }
         }
@@ -109,13 +119,19 @@ def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client
         # 2. Upload the binary file using dynamic chunking with RETRY LOGIC
         logger.info(f"[TikTok] Streaming binary data. Publish ID: {publish_id}")
 
-        MAX_RETRIES = 3  # ✨ Maximum attempts per chunk
+        MAX_RETRIES = 3
 
         with open(video_path, 'rb') as f:
             for i in range(total_chunk_count):
                 start = i * CHUNK_SIZE
-                end = min(start + CHUNK_SIZE - 1, file_size - 1)
-                chunk_data = f.read(CHUNK_SIZE)
+
+                # ✨ FIX: The last chunk must absorb all remaining bytes (TikTok Rule)
+                if i == total_chunk_count - 1:
+                    chunk_data = f.read()  # Reads all remaining bytes
+                    end = file_size - 1
+                else:
+                    chunk_data = f.read(CHUNK_SIZE)
+                    end = start + len(chunk_data) - 1
 
                 upload_headers = {
                     "Content-Type": "video/mp4",
@@ -123,11 +139,10 @@ def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client
                     "Content-Range": f"bytes {start}-{end}/{file_size}"
                 }
 
-                # ✨ START RETRY LOOP FOR CURRENT CHUNK
+                # START RETRY LOOP FOR CURRENT CHUNK
                 chunk_success = False
                 for attempt in range(1, MAX_RETRIES + 1):
                     try:
-                        # Added timeout to prevent the worker from hanging indefinitely
                         put_response = requests.put(upload_url, data=chunk_data, headers=upload_headers, timeout=60)
 
                         if put_response.status_code in [200, 201, 206]:
@@ -136,18 +151,18 @@ def upload_video_to_tiktok(video_path: str, title: str, token_data: dict, client
                             break
 
                         elif put_response.status_code >= 500:
-                            # 500+ errors (like 504 Gateway Timeout) are candidates for retry
                             logger.warning(
                                 f"[TikTok] Server error {put_response.status_code} on chunk {i + 1}. Attempt {attempt}/{MAX_RETRIES}...")
-                            time.sleep(5 * attempt)  # Exponential backoff
+                            import time
+                            time.sleep(5 * attempt)
                         else:
-                            # 400 errors are client-side; retrying won't help
                             logger.error(f"[TikTok] Fatal upload error {put_response.status_code}: {put_response.text}")
                             break
 
                     except requests.exceptions.RequestException as req_err:
                         logger.warning(
                             f"[TikTok] Network error on chunk {i + 1}: {req_err}. Attempt {attempt}/{MAX_RETRIES}...")
+                        import time
                         time.sleep(5 * attempt)
 
                 if not chunk_success:
