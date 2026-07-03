@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Instalar dependencias del sistema (curl para poetry, ffmpeg para procesamiento de video)
 RUN apt-get update && apt-get install -y --no-install-recommends \
