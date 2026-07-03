@@ -1,0 +1,20 @@
+services:
+  maite_api_dev:
+    build: .
+    container_name: maite_api_dev
+    restart: always
+    expose:
+      - "8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+    volumes:
+      - ./storage:/app/storage
+      - ./temp_media:/app/temp_media
+      - ./temp_videos:/app/temp_videos
+    networks:
+      - maite_supreme
+
+networks:
+  maite_supreme:
+    external: true
